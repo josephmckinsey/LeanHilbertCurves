@@ -866,134 +866,69 @@ lemma RtimesR.cast_eq (mn mn' : ℤ × ℤ) : (mn : ℝ × ℝ) = mn' ↔ mn = m
 lemma RtimesR.cast_le (mn mn' : ℤ × ℤ) : (mn : ℝ × ℝ) ≤ mn' ↔  mn ≤ mn' := by
   simp only [Prod.le_def, Int.cast_le]
 
-noncomputable def interpolate_points (f : ℕ → ℝ × ℝ) (t : ℝ) : ℝ × ℝ :=
-  let n := Int.natAbs ⌊t⌋
+noncomputable def interpolate_points (f : ℤ → ℝ × ℝ) (t : ℝ) : ℝ × ℝ :=
+  let n := ⌊t⌋
   (AffineMap.lineMap (f n) (f (n+1))) (t - ⌊t⌋)
 
-lemma interpolate_interpolates (f : ℕ → ℝ × ℝ) (i : ℕ) :
+lemma interpolate_interpolates (f : ℤ → ℝ × ℝ) (i : ℤ) :
   f i = interpolate_points f i := by
   simp [interpolate_points]
 
-lemma interpolate_interpolates_zero (f : ℕ → ℝ × ℝ) :
+lemma interpolate_interpolates_zero (f : ℤ → ℝ × ℝ) :
   f 0 = interpolate_points f 0 := by
-  rw [show (0 : ℝ) = (0 : ℕ) by norm_cast]
+  rw [show (0 : ℝ) = (0 : ℤ) by norm_cast]
   exact interpolate_interpolates f 0
 
-lemma interpolate_interpolates_one (f : ℕ → ℝ × ℝ) :
+lemma interpolate_interpolates_one (f : ℤ → ℝ × ℝ) :
   f 1 = interpolate_points f 1 := by
-  rw [show (1 : ℝ) = (1 : ℕ) by norm_cast]
+  rw [show (1 : ℝ) = (1 : ℤ) by norm_cast]
   exact interpolate_interpolates f 1
 
 
-lemma interpolate_add (i : ℕ) (f : ℕ → ℝ × ℝ) (t : ℝ) (h : 0 ≤ t) :
+lemma interpolate_add (i : ℤ) (f : ℤ → ℝ × ℝ) (t : ℝ) :
   (interpolate_points f) (t + i)
   = (interpolate_points (f ∘ (fun x ↦ x + i))) t := by
   simp [interpolate_points]
-  have floor_pos : 0 ≤ ⌊t⌋ := by positivity
-  have floor_extra_pos : 0 ≤ ⌊t⌋ + i := by positivity
-  have : (⌊t⌋ + ↑i).natAbs = ⌊t⌋.natAbs + i := by
-    zify
-    rw [abs_of_nonneg floor_pos]
-    rw [abs_of_nonneg floor_extra_pos]
-  rw [this]
-  rw [show ⌊t⌋.natAbs + i + 1 = ⌊t⌋.natAbs + 1 + i by group]
+  rw [show ⌊t⌋ + i + 1 = ⌊t⌋ + 1 + i by group]
 
-lemma interpolate_add' (i : ℕ) (f : ℕ → ℝ × ℝ) (s : Set ℝ) (h : s ⊆ Set.Ici 0) :
-  (interpolate_points f) ∘  (fun x ↦ x + i) '' s
-  = (interpolate_points (f ∘ (fun x ↦ x + i))) '' s := by
-  apply Set.image_congr
-  intro a as
-  rw [<-interpolate_add]
-  · simp
-  apply h as
+lemma interpolate_add' (i : ℤ) (f : ℤ → ℝ × ℝ) :
+  (interpolate_points f) ∘  (fun x ↦ x + i)
+  = (interpolate_points (f ∘ (fun x ↦ x + i))) := by
+  funext t; exact interpolate_add i f t
 
 /-
 Interpolate maps to a segment on each [i, i+1]
 -/
-lemma interpolate_section (i : ℕ) (f : ℕ → ℝ × ℝ) :
-  interpolate_points f '' (Set.Icc i (i+1 : ℕ)) = segment ℝ ((interpolate_points f) i) (( interpolate_points f) (i+1 : ℕ)) := by
+lemma interpolate_section (i : ℤ) (f : ℤ → ℝ × ℝ) :
+  interpolate_points f '' (Set.Icc i (i+1 : ℤ)) = segment ℝ ((interpolate_points f) i) (( interpolate_points f) (i+1 : ℤ)) := by
   -- Segments are lineMaps from [0, 1]
   rw [segment_eq_image_lineMap]
   rw [<-interpolate_interpolates, <-interpolate_interpolates]
   -- The [1] case is quite simple
-  suffices interpolate_points f '' (Set.Ico (i : ℝ) ((i+1) : ℕ)) =
+  suffices interpolate_points f '' (Set.Ico (i : ℝ) ((i+1) : ℤ)) =
     (AffineMap.lineMap (f i) (f (i + 1))) '' (Set.Ico (0 : ℝ) 1) by
     rw [<-Set.Ico_union_right, <-Set.Ico_union_right]
     · rw [Set.image_union, Set.image_union]
       rw [<-this]
-      · simp only [Set.image_singleton, Set.union_singleton,
-        AffineMap.lineMap_apply_one, interpolate_interpolates]
+      · simp only [Set.image_singleton, Set.union_singleton, interpolate_interpolates,
+        AffineMap.lineMap_apply_one]
     · norm_num
     norm_cast
-    exact Nat.le_add_right i 1
+    exact Int.le.intro 1 rfl
   -- The zero case
-  have : Set.Ico (i : ℝ) (i+1 : ℕ) = (fun (x : ℝ) => x + i) '' (Set.Ico (0 : ℝ) 1) := by
-    simp only [Nat.cast_add, Nat.cast_one, Set.image_add_right, Set.preimage_add_const_Ico,
+  have : Set.Ico (i : ℝ) (i+1 : ℤ) = (fun (x : ℝ) => x + i) '' (Set.Ico (0 : ℝ) 1) := by
+    simp only [Int.cast_add, Int.cast_one, Set.image_add_right, Set.preimage_add_const_Ico,
       sub_neg_eq_add, zero_add]
     rw [add_comm]
   rw [this]
   rw [Set.image_image]
   apply Set.image_congr
   intro t th
-  rw [interpolate_add i f t th.1]
-  rw [interpolate_points]
+  rw [interpolate_add i f, interpolate_points]
   have : ⌊t⌋ = 0 := by
     exact Int.floor_eq_zero_iff.mpr th
   simp [this]
   rw [add_comm]
-
-/-
-lemma segment_in_convex_hull (a b : ℝ × ℝ) (s : Set (ℝ × ℝ)) :
-  segment ℝ a b ⊆ (convexHull ℝ) s := by
-  refine segment_subset_convexHull ?_ ?_
--/
-
-lemma interpolate_preserves_monotonic (f : ℕ → ℝ × ℝ) (a b : ℕ) (s : Set (ℝ × ℝ)) :
-  Set.MapsTo f (Set.Icc a b) s →
-  Set.MapsTo (interpolate_points f) (Set.Icc a b)
-  (convexHull ℝ (s : Set (ℝ × ℝ))) := by
-  wlog h : a ≤ b
-  · have : Set.Icc (a : ℝ) b = ∅ := by
-      simp only [not_le] at h
-      rify at h
-      exact Set.Icc_eq_empty_of_lt h
-    rw [this]
-    simp [Set.MapsTo]
-  set l := b - a with l_def
-  have : b = a + l := by omega
-  rw [this]
-  induction l with
-  | zero =>
-    simp
-    intro h
-    rw [<-interpolate_interpolates]
-    apply subset_convexHull
-    simp [h]
-  | succ i ih =>
-    intro h
-    have : Set.Icc a (a+ (i+1)) = Set.Icc a (a+i) ∪ Set.Icc (a+i) ((a+i)+1) := by
-      simp [add_assoc]
-    rw [this] at h
-    have : Set.Icc (a : ℝ) (a+ (i+1) : ℕ) = Set.Icc (a : ℝ) (a+i : ℕ) ∪ Set.Icc (a+i) ((a+i)+1) := by
-      simp [add_assoc]
-    rw [this]
-    rw [Set.mapsTo_union]
-    rw [Set.mapsTo_union] at h
-    constructor
-    · apply ih
-      exact h.1
-    rw [show (a : ℝ) + i = (a + i : ℕ) by norm_cast]
-    rw [show (a + i : ℕ) + (1 : ℝ) = (a + i + 1: ℕ) by norm_cast]
-    rw [Set.mapsTo']
-    rw [interpolate_section]
-    rw [<-interpolate_interpolates, <-interpolate_interpolates]
-    apply segment_subset_convexHull
-    · apply h.2
-      rw [Set.left_mem_Icc]
-      linarith
-    apply h.2
-    rw [Set.right_mem_Icc]
-    linarith
 
 lemma icc_accumulate (α : Type) [r : Semiring α] [CharZero α] [LinearOrder α] [IsOrderedRing α]  (n : ℕ) (h : 1 ≤ n) :
   Set.Icc (0 : α) n = Set.Accumulate (fun (i : ℕ) ↦ Set.Icc (i : α) (i+1)) (n-1 : ℕ) := by
@@ -1024,92 +959,103 @@ lemma image_accumulate (α β γ : Type) [LE α] (s : α → Set β) (x : α) (f
   unfold Set.Accumulate
   simp [Set.image_eq_iUnion]
 
-lemma interpolate_preserves_monotonic' (f : ℕ → ℝ × ℝ) (a b : ℕ) (s : Set (ℝ × ℝ)) :
+
+lemma interpolate_preserves_monotonic (f : ℤ → ℝ × ℝ) (a b : ℤ) (s : Set (ℝ × ℝ)) :
   Set.MapsTo f (Set.Icc a b) s →
   Set.MapsTo (interpolate_points f) (Set.Icc a b)
   (convexHull ℝ (s : Set (ℝ × ℝ))) := by
-  rcases (Nat.lt_or_ge b a : b < a ∨ a ≤ b) with h | h
-  · rw [show Set.Icc (a : ℝ) b = ∅ by
-      apply Set.Icc_eq_empty_of_lt
-      norm_cast]
+  have : b < a ∨ b = a ∨ a < b := by
+    rw [<-or_assoc, ← le_iff_lt_or_eq, or_comm]
+    apply lt_or_le
+  rcases this with h | h | h
+  · have : Set.Icc (a : ℝ) b = ∅ := by
+      simp only [not_le] at h
+      rify at h
+      exact Set.Icc_eq_empty_of_lt h
+    rw [this]
     simp [Set.MapsTo]
-  wlog h' : a = 0 generalizing f a b
-  · have ih := this (f ∘ (fun i ↦ (i + a))) 0 (b - a) (by linarith) rfl
-    rw [
-      show Set.Icc a b = (fun i ↦ (i + a)) '' Set.Icc 0 (b - a) by
-        simp [Nat.sub_add_cancel h],
-      show Set.Icc (a : ℝ) b = (fun (i : ℝ) ↦ (i + a)) '' Set.Icc (0 : ℝ) (b - a) by
-        simp [Nat.sub_add_cancel h]
-      ]
-    rw [Set.mapsTo_image_iff, Set.mapsTo_image_iff]
-    rw [Set.mapsTo' (t := convexHull _ _)]
-    rw [interpolate_add' a f, <-Set.mapsTo', <-Nat.cast_sub h]
-    · rw [Nat.cast_zero] at ih
-      exact ih
-    exact Set.Icc_subset_Ici_self
-  rw [h']
-  rcases (by omega : b = 0 ∨ 1 ≤ b) with bbad | bgood
-  · rw [bbad]
-    simp only [Set.Icc_self, Set.mapsTo_singleton, ← interpolate_interpolates]
+  · rw [h]
+    simp only [Set.Icc_self, Set.mapsTo_singleton]
+    rw [<-interpolate_interpolates]
     apply subset_convexHull
-  rw [icc_accumulate' (h := bgood), CharP.cast_eq_zero, icc_accumulate (α := ℝ) (h := bgood)] --, Set.mapsTo', image_accumulate] at h
+  rw [
+    show Set.Icc a b = (fun i ↦ (i + a)) '' Set.Icc 0 (b - a) by simp,
+    show Set.Icc (a : ℝ) b = (fun (i : ℝ) ↦ (i + a)) '' Set.Icc (0 : ℝ) (b - a) by simp
+    ]
+  rw [<-Int.cast_sub, Set.mapsTo_image_iff, Set.mapsTo_image_iff]
+  rw [interpolate_add' a f]
+  set l := (b - a).toNat with l_def
+  rw [show b - a = l by simp [l_def, le_of_lt h],
+    show (l : ℤ) = (l : ℝ) by norm_cast]
+  have lgood : 1 ≤ l := by zify; simp [l_def]; linarith
+  rw [icc_accumulate (α := ℤ) (h := lgood)]
+  rw [icc_accumulate (α := ℝ) (h := lgood)]
   simp only [Set.accumulate_def, Set.mapsTo_iUnion]
   intro h i ih
-  rw [Set.mapsTo', show i + (1 : ℝ) = (i + 1 : ℕ) by norm_cast, interpolate_section]
+  rw [Set.mapsTo',
+   show (i : ℝ) = (i : ℤ) by norm_cast,
+   show ((i : ℤ) + 1 : ℝ) = (i + 1 : ℤ) by norm_cast,
+    interpolate_section i]
   apply segment_subset_convexHull <;> {
     rw [<-interpolate_interpolates]
     apply h i ih
     simp
   }
 
-#check Int.toNat
+lemma lineMap_reverse (t : ℝ) :
+  (AffineMap.lineMap 1 0) (1 - t) = t := by
+  simp [AffineMap.lineMap]
 
-/-
-lemma interpolate_neg (f : ℕ → ℝ × ℝ) (t : ℝ) :
-  (interpolate_points f) t = (interpolate_points f) (-t) := by
+lemma interpolate_neg (f : ℤ → ℝ × ℝ) (t : ℝ) :
+  (interpolate_points (f ∘ Neg.neg)) t = (interpolate_points f) (-t) := by
   have : (∃ (z : ℤ), t = z) ∨ Int.fract t ≠ 0 := by
     simp [Int.fract_eq_iff, -not_exists]
     apply or_not (p := ∃(z: ℤ), t = z)
   rcases this with ⟨i, h⟩ | h
-  ·
--/
+  · rw [h, <-Int.cast_neg, <-interpolate_interpolates]
+    rw [<-interpolate_interpolates]
+    simp
+  simp [interpolate_points]
+  nth_rw 2 [AffineMap.lineMap_symm]
+  rw [Int.fract_neg h]
+  rw [AffineMap.comp_apply, lineMap_reverse]
+  congr
+  · suffices -⌊t⌋ = ⌊-t⌋ + (1 : ℝ) by
+      exact_mod_cast this
+    simp [Int.floor_neg, Int.ceil_eq_add_one_sub_fract h]
+    ring_nf
+    simp
+  suffices (-1 : ℝ) + -⌊t⌋ = ⌊-t⌋ by
+    exact_mod_cast this
+  simp [Int.floor_neg, Int.ceil_eq_add_one_sub_fract h]
+  ring_nf
+  simp
+  ring_nf
 
-/-
+lemma neg_to_normal_eq_univ {α : Type} [Ring α] [LinearOrder α]
+  [IsOrderedRing α] [Archimedean α] :
+  ⋃ (a : ℕ), Set.Icc (-a : α) a = Set.univ := by
+  rw [Set.iUnion_eq_univ_iff]
+  simp
+  simp_rw [<-abs_le (G := α)]
+  intro x;
+  apply exists_nat_ge
 
-  have : Int.fract t = 0 ∨ Int.fract (-t) = 1 - Int.fract t := by
-    rw [Int.fract_neg]
-    · right; rfl
-    sorry
-  sorry
 
-
-lemma interpolate_preserves (f : ℕ → ℝ × ℝ)  (s : Set (ℝ × ℝ)) :
+lemma interpolate_preserves (f : ℤ → ℝ × ℝ)  (s : Set (ℝ × ℝ)) :
    Set.MapsTo f Set.univ s →
    Set.MapsTo (interpolate_points f) Set.univ (convexHull ℝ s) := by
-  rw[show Set.univ = ⋃ a, Set.Icc 0 a by
-    simp [Set.Ici, zero_le, Set.setOf_true]]
-  rw [show Set.univ = ⋃ (a : ℕ), Set.Icc (-a : ℝ) a by
-    ext x
-    simp only [Set.mem_univ, Set.mem_iUnion, Set.mem_Icc, true_iff]
-    suffices ∃(i:ℕ), |x| ≤ i by
-      rcases this with ⟨i, ih⟩
-      exact ⟨i, abs_le.mp ih⟩
-    exact exists_nat_ge |x|]
+  rw [<-neg_to_normal_eq_univ, <-neg_to_normal_eq_univ]
   rw [Set.mapsTo_iUnion, Set.mapsTo_iUnion]
   intro h i
-
-
-
-
--/
-
-
-
+  exact_mod_cast interpolate_preserves_monotonic f (-i) i s (h i)
 
 -- How would do something like extend the cantorset -> [0, 1] to [0, 1] -> [0, 1]
 
 noncomputable def normalized_hilbert_curve (i : ℕ) (t : ℝ) :=
-  1/2^i * interpolate_points ((↑) ∘ hilbert_curve i) (t * hilbert_length i)
+  1/2^i * interpolate_points (
+    (↑) ∘ hilbert_curve i ∘ (fun x ↦ x.toNat)
+  ) (t * hilbert_length i)
 
 example (i : ℕ) : normalized_hilbert_curve i 0 = (0, 0) := by
   simp [normalized_hilbert_curve]
@@ -1120,7 +1066,7 @@ example (i : ℕ) : normalized_hilbert_curve i ((hilbert_length i - 1)/hilbert_l
   rw [normalized_hilbert_curve]
   simp
   rw [div_mul_cancel₀ _ (by norm_cast; linarith [hilbert_length_pos i])]
-  rw [show (1 : ℝ) = (1 : ℕ) by norm_cast, <-Nat.cast_sub (show 1 ≤ hilbert_length i by linarith [hilbert_length_pos i]) ]
+  rw [show (hilbert_length i - 1 : ℝ) = (hilbert_length i - 1 : ℤ) by norm_cast]
   rw [<-interpolate_interpolates]
   dsimp
   simp [hilbert_curve_end]
