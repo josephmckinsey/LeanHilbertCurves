@@ -1119,7 +1119,37 @@ lemma scale_map_inv' (s : ℝ) (hs : s ≠ 0) : (scale_map s) ∘ₗ (scale_map 
   funext x
   simp [hs]
 
-example (i : ℕ)  :
+
+lemma scale_map_preimage (a b : ℝ × ℝ) (s : ℝ) (h : 0 < s) :
+  (scale_map s⁻¹)⁻¹' Set.Icc a b = Set.Icc (scale_map s a) (scale_map s b) := by
+  apply subset_antisymm
+  · rw [<-Set.image_eq_preimage_of_inverse (f := scale_map s)]
+    · rw [<-Set.mapsTo']
+      intro x xs
+      unfold scale_map
+      simp at ⊢ xs
+      constructor
+      . apply smul_le_smul_of_nonneg_left xs.1 (le_of_lt h)
+      apply smul_le_smul_of_nonneg_left xs.2 (le_of_lt h)
+    · have := scale_map_inv s (Ne.symm (ne_of_lt h))
+      rw [Function.LeftInverse]
+      intro x; rw [<-LinearMap.comp_apply, this]
+      simp only [LinearMap.id_coe, id_eq]
+    have := scale_map_inv' s (Ne.symm (ne_of_lt h))
+    rw [Function.RightInverse]
+    intro x; rw [<-LinearMap.comp_apply, this]
+    simp only [LinearMap.id_coe, id_eq]
+  rw [<-Set.image_subset_iff, <-Set.mapsTo']
+  intro x xs
+  simp [scale_map] at ⊢ xs
+  constructor
+  · rw [le_inv_smul_iff_of_pos h]
+    exact xs.1
+  rw [inv_smul_le_iff_of_pos h]
+  exact xs.2
+
+
+lemma hilbert_interpolant_range (i : ℕ)  :
   Set.range (normalized_hilbert_curve (i : ℕ)) ⊆ Set.Icc (0, 0) (1, 1) := by
   unfold normalized_hilbert_curve
   set scale_t := fun t ↦ t * (hilbert_length i : ℝ) with scale_def
@@ -1137,31 +1167,12 @@ example (i : ℕ)  :
   rw [Set.image_comp, Set.image_subset_iff]
   rw [Set.image_subset_iff]
   have preimage_eq : (scale_map (2 ^ i)⁻¹)⁻¹' (Set.Icc (0, 0) (1, 1)) = Set.Icc (0, 0) (2^i, 2^i) := by
-    apply subset_antisymm
-    · rw [<-Set.image_eq_preimage_of_inverse (f := scale_map (2^i))]
-      · rw [<-Set.mapsTo']
-        intro x xs
-        unfold scale_map
-        simp at ⊢ xs
-        constructor
-        · apply smul_nonneg (by positivity) (xs.1)
-        rw [show ((2:ℝ)^i, (2 :ℝ)^i) = (2^i : ℝ) • 1 from Prod.ext (by simp) (by simp)]
-        apply smul_le_smul (le_refl _) xs.2 (by positivity) (by norm_num)
-      · have := scale_map_inv (2^i) (by positivity)
-        rw [Function.LeftInverse]
-        intro x; rw [<-LinearMap.comp_apply, this]
-        simp only [LinearMap.id_coe, id_eq]
-      have := scale_map_inv' (2^i) (by positivity)
-      rw [Function.RightInverse]
-      intro x; rw [<-LinearMap.comp_apply, this]
-      simp only [LinearMap.id_coe, id_eq]
-    rw [<-Set.image_subset_iff, <-Set.mapsTo']
-    intro x xs
-    simp [scale_map] at ⊢ xs
-    constructor
-    · apply smul_nonneg (by positivity) xs.1
-    rw [show 1 = (2^i : ℝ)⁻¹ • (2^i : ℝ × ℝ) from Prod.ext (by simp) (by simp)]
-    apply smul_le_smul (le_refl _) xs.2 (by positivity) (le_trans xs.1 xs.2)
+    rw [scale_map_preimage (h := by positivity)]
+    rw [scale_map]
+    dsimp
+    rw [show (2^i : ℝ) • (0 : ℝ × ℝ) = (0,0) by simp]
+    rw [show (2^i : ℝ) • (1: ℝ × ℝ) = (2^i,2^i) by simp [Prod.smul_def]]
+    simp
   rw [preimage_eq, <-Set.image_subset_iff]
   have : Convex ℝ (Set.Icc ((0 : ℝ), (0 : ℝ)) (2^i, 2^i)) := by
     apply convex_Icc
