@@ -866,6 +866,17 @@ lemma RtimesR.cast_eq (mn mn' : ℤ × ℤ) : (mn : ℝ × ℝ) = mn' ↔ mn = m
 lemma RtimesR.cast_le (mn mn' : ℤ × ℤ) : (mn : ℝ × ℝ) ≤ mn' ↔  mn ≤ mn' := by
   simp only [Prod.le_def, Int.cast_le]
 
+instance : Coe (ℕ × ℕ) (ℝ × ℝ) where
+  coe := fun p => (p.1, p.2)
+
+@[simp, norm_cast]
+lemma RtimesR.cast_le_ofNat (mn mn' : ℕ × ℕ) : (mn : ℝ × ℝ) ≤ mn' ↔  mn ≤ mn' := by
+  simp only [Int.cast_natCast, Prod.le_def, Nat.cast_le]
+
+@[simp, norm_cast]
+lemma RtimesR.cast_eq_ofNat (mn mn' : ℕ × ℕ) : (mn : ℝ × ℝ) = mn' ↔  mn = mn' := by
+  simp only [Int.cast_natCast, Prod.ext_iff, Nat.cast_inj]
+
 noncomputable def interpolate_points (f : ℤ → ℝ × ℝ) (t : ℝ) : ℝ × ℝ :=
   let n := ⌊t⌋
   (AffineMap.lineMap (f n) (f (n+1))) (t - ⌊t⌋)
@@ -1041,7 +1052,6 @@ lemma neg_to_normal_eq_univ {α : Type} [Ring α] [LinearOrder α]
   intro x;
   apply exists_nat_ge
 
-
 lemma interpolate_preserves (f : ℤ → ℝ × ℝ)  (s : Set (ℝ × ℝ)) :
    Set.MapsTo f Set.univ s →
    Set.MapsTo (interpolate_points f) Set.univ (convexHull ℝ s) := by
@@ -1050,12 +1060,37 @@ lemma interpolate_preserves (f : ℤ → ℝ × ℝ)  (s : Set (ℝ × ℝ)) :
   intro h i
   exact_mod_cast interpolate_preserves_monotonic f (-i) i s (h i)
 
+
+lemma interpolate_map (f : ℤ → ℝ × ℝ) (g : ℝ × ℝ →ᵃ[ℝ] ℝ × ℝ) :
+  (interpolate_points (g ∘ f)) = g ∘ interpolate_points f := by
+  funext t
+  simp [interpolate_points, AffineMap.apply_lineMap]
+
+lemma interpolate_map' (f : ℤ → ℝ × ℝ) (g : ℝ × ℝ →ₗ[ℝ] ℝ × ℝ) :
+  (interpolate_points (g ∘ f)) = g ∘ interpolate_points f := by
+  apply interpolate_map (g := g.toAffineMap)
+
+-- Interpolate is continuous
+
+/-
+#check (inferInstance : Repr ℝ)
+unsafe def test (x : ℝ) := x.cauchy
+
+#eval (1 : ℝ).cauchy
+-/
+
+
 -- How would do something like extend the cantorset -> [0, 1] to [0, 1] -> [0, 1]
 
-noncomputable def normalized_hilbert_curve (i : ℕ) (t : ℝ) :=
-  1/2^i * interpolate_points (
-    (↑) ∘ hilbert_curve i ∘ (fun x ↦ x.toNat)
-  ) (t * hilbert_length i)
+noncomputable def scale_map (s : ℝ) : ℝ × ℝ →ₗ[ℝ] ℝ × ℝ where
+  toFun := fun p => s • p
+  map_add' := by simp [smul_add]
+  map_smul' a b := by rw [smul_comm, RingHom.id_apply]
+
+noncomputable def normalized_hilbert_curve (i : ℕ) :=
+  interpolate_points (
+    (scale_map (2^i)⁻¹) ∘ (↑) ∘ hilbert_curve i ∘ (fun x ↦ x.toNat)
+  ) ∘ (fun t ↦ t * hilbert_length i)
 
 example (i : ℕ) : normalized_hilbert_curve i 0 = (0, 0) := by
   simp [normalized_hilbert_curve]
@@ -1069,14 +1104,80 @@ example (i : ℕ) : normalized_hilbert_curve i ((hilbert_length i - 1)/hilbert_l
   rw [show (hilbert_length i - 1 : ℝ) = (hilbert_length i - 1 : ℤ) by norm_cast]
   rw [<-interpolate_interpolates]
   dsimp
-  simp [hilbert_curve_end]
-  ext
-  · simp; ring_nf; simp; ring
+  simp [hilbert_curve_end, scale_map]
+  ring_nf; simp; ring
+
+lemma scale_map_inv (s : ℝ) (hs : s ≠ 0) : (scale_map s⁻¹) ∘ₗ (scale_map s) = LinearMap.id := by
+  simp [scale_map, LinearMap.comp]
+  congr
+  funext x
+  simp [hs]
+
+lemma scale_map_inv' (s : ℝ) (hs : s ≠ 0) : (scale_map s) ∘ₗ (scale_map s⁻¹) = LinearMap.id := by
+  simp [scale_map, LinearMap.comp]
+  congr
+  funext x
+  simp [hs]
+
+example (i : ℕ)  :
+  Set.range (normalized_hilbert_curve (i : ℕ)) ⊆ Set.Icc (0, 0) (1, 1) := by
+  unfold normalized_hilbert_curve
+  set scale_t := fun t ↦ t * (hilbert_length i : ℝ) with scale_def
+  rw [Set.range_comp (f := scale_t)]
+  have : Set.range scale_t = Set.univ := by
+    rw [Set.range_eq_univ]
+    intro x
+    use x / (hilbert_length i)
+    simp only [scale_def]
+    rw [div_mul_cancel₀]
+    norm_cast
+    linarith [hilbert_length_pos i]
+  rw [this]
+  rw [interpolate_map' (g := (scale_map (2^i)⁻¹))]
+  rw [Set.image_comp, Set.image_subset_iff]
+  rw [Set.image_subset_iff]
+  have preimage_eq : (scale_map (2 ^ i)⁻¹)⁻¹' (Set.Icc (0, 0) (1, 1)) = Set.Icc (0, 0) (2^i, 2^i) := by
+    apply subset_antisymm
+    · rw [<-Set.image_eq_preimage_of_inverse (f := scale_map (2^i))]
+      · rw [<-Set.mapsTo']
+        intro x xs
+        unfold scale_map
+        simp at ⊢ xs
+        constructor
+        · apply smul_nonneg (by positivity) (xs.1)
+        rw [show ((2:ℝ)^i, (2 :ℝ)^i) = (2^i : ℝ) • 1 from Prod.ext (by simp) (by simp)]
+        apply smul_le_smul (le_refl _) xs.2 (by positivity) (by norm_num)
+      · have := scale_map_inv (2^i) (by positivity)
+        rw [Function.LeftInverse]
+        intro x; rw [<-LinearMap.comp_apply, this]
+        simp only [LinearMap.id_coe, id_eq]
+      have := scale_map_inv' (2^i) (by positivity)
+      rw [Function.RightInverse]
+      intro x; rw [<-LinearMap.comp_apply, this]
+      simp only [LinearMap.id_coe, id_eq]
+    rw [<-Set.image_subset_iff, <-Set.mapsTo']
+    intro x xs
+    simp [scale_map] at ⊢ xs
+    constructor
+    · apply smul_nonneg (by positivity) xs.1
+    rw [show 1 = (2^i : ℝ)⁻¹ • (2^i : ℝ × ℝ) from Prod.ext (by simp) (by simp)]
+    apply smul_le_smul (le_refl _) xs.2 (by positivity) (le_trans xs.1 xs.2)
+  rw [preimage_eq, <-Set.image_subset_iff]
+  have : Convex ℝ (Set.Icc ((0 : ℝ), (0 : ℝ)) (2^i, 2^i)) := by
+    apply convex_Icc
+  rw [<-convexHull_eq_self.mpr this, <-Set.mapsTo']
+  apply interpolate_preserves
+  simp only [Int.cast_natCast, Prod.mk_zero_zero, Set.mapsTo_univ_iff, Function.comp_apply,
+    Set.mem_Icc]
+  intro n
+  rw [show (0 : ℝ × ℝ) = (0,0) by rfl]
+  constructor
+  · simp [Prod.le_def]
+  rw [show (2^i : ℝ) = (2^i : ℕ) by norm_cast]
+  apply (RtimesR.cast_le_ofNat _ (2^i, 2^i)).mpr
+  apply le_trans (hilbert_curve_size _ _)
   simp
 
---example (i n : ℕ) :
-  --2 * hilbert_curve i (n/4) ≤ hilbert_curve (i+1) n ∧
-  --hilbert_curve (i+1) n ≤ 2 * hilbert_curve i (n/4) + 1 := by
 
 /-
 Embedding into the reals + iteration defines a contracting map.
