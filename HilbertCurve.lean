@@ -10,6 +10,7 @@ import HilbertCurve.Quadrants
 import HilbertCurve.Transformations
 import Mathlib.Data.Real.Basic -- Added import
 import Mathlib.Algebra.Order.Archimedean.Basic
+import HilbertCurve.LinearInterpolation
 
 open ProofWidgets Svg
 open scoped Real -- Added open scoped
@@ -253,7 +254,7 @@ lemma sum_square_eq_0_iff (a : ℤ × ℤ) :
 
 
 def dist' (x y : ℕ × ℕ) : ℕ :=
-  ((x.1 : ℤ) - (y.1 : ℤ)).natAbs + ((x.2 : ℤ) - (y.2 : ℤ)).natAbs
+  ((x.1 : ℤ) - (y.1 : ℤ)).natAbs ⊔ ((x.2 : ℤ) - (y.2 : ℤ)).natAbs
 
 lemma dist'_symm (x y : ℕ × ℕ) :
   dist' x y = dist' y x := by
@@ -309,8 +310,8 @@ lemma dist'_T2' (i : ℕ) (x y : ℕ × ℕ) :
   simp [T2', dist'_add]
 
 lemma dist'_cast (x y : ℕ × ℕ) :
-  dist' x y = (abs ((x : ℤ × ℤ) - y).1) + (abs ((x : ℤ × ℤ) - y).2):= by
-  simp [dist']
+  dist' x y = dist (x : ℤ × ℤ) (y : ℤ × ℤ) := by
+  simp [dist', dist, Int.cast_natAbs]
 
 @[simp]
 lemma dist'_T3' (i : ℕ) (x y : ℕ × ℕ)
@@ -318,11 +319,12 @@ lemma dist'_T3' (i : ℕ) (x y : ℕ × ℕ)
   (h1' : y.1 ≤ 2 ^ i - 1) (h2' : y.2 ≤ 2 ^ (i + 1) - 1) :
   dist' (T3' i x) (T3' i y) = dist' x y := by
   -- We could use dist'_sub too
-  zify
+  rify
   rw [dist'_cast]
   rw [<-T3_cast _ _ h1 h2, <-T3_cast _ _ h1' h2', T3, T3, dist'_cast]
-  simp
-  rw [add_comm, abs_sub_comm, abs_sub_comm (y.2 : ℤ)]
+  rw [dist_sub_left]
+  simp only [dist, Prod.swap_prod_mk, Int.cast_natCast]
+  rw [sup_comm]
 
 lemma split_domain (i : ℕ) (n : ℕ) :
   n < hilbert_length (i + 1) ↔
@@ -475,7 +477,7 @@ lemma n_and_n_succ_adjacent_or_equal' (i n : ℕ) :
 /--
 A hilbert curve moves by at most 1 each time
 -/
-example (i n : ℕ) : dist' (hilbert_curve i (n + 1)) (hilbert_curve i n) ≤ 1 := by
+lemma hilbert_diff (i n : ℕ) : dist' (hilbert_curve i (n + 1)) (hilbert_curve i n) ≤ 1 := by
   induction i generalizing n with
   | zero => simp [hilbert_curve, dist']
   | succ i ih =>
@@ -812,7 +814,7 @@ def compare_hilbert_curves (i j : ℕ) : Svg frame :=
 /-
 Each iteration subdivides each square
 -/
-example (i n : ℕ) :
+lemma subdivision_size (i n : ℕ) :
   2 * hilbert_curve i (n/4) ≤ hilbert_curve (i+1) n ∧
   hilbert_curve (i+1) n ≤ 2 * hilbert_curve i (n/4) + 1 := by
   induction i generalizing n with
@@ -855,232 +857,66 @@ example (i n : ℕ) :
     · exact hilbert_curve_size (i + 1) (n - 3 * (4 * hilbert_length i))
     apply ih
 
-instance : Coe (ℤ × ℤ) (ℝ × ℝ) where
-  coe := fun p => (p.1, p.2)
+instance : IsOrderedRing (ℕ × ℕ) where
+  add_le_add_left := by
+    intro a b h c
+    rw [Prod.le_def] at *
+    simpa
+  zero_le_one := by
+    rw [Prod.le_def]; simp
+  mul_le_mul_of_nonneg_left := by
+    intro a b c h h'
+    rw [Prod.le_def]
+    simp [mul_le_mul_of_nonneg_left h.1 h'.1,
+      mul_le_mul_of_nonneg_left h.2 h'.2]
+  mul_le_mul_of_nonneg_right :=  by
+    intro a b c h h'
+    rw [Prod.le_def]
+    simp [mul_le_mul_of_nonneg_right h.1 h'.1,
+      mul_le_mul_of_nonneg_right h.2 h'.2]
 
-@[simp, norm_cast]
-lemma RtimesR.cast_eq (mn mn' : ℤ × ℤ) : (mn : ℝ × ℝ) = mn' ↔ mn = mn' := by
-  simp [Prod.ext_iff]
+lemma NtimesN.add_sub_assoc {m k : ℕ × ℕ} (h : k ≤ m) (n : ℕ × ℕ) : n + m - k = n + (m - k) := by
+  rw [Prod.ext_iff]
+  simp
+  rw [Nat.add_sub_assoc h.1, Nat.add_sub_assoc h.2]
+  simp
 
-@[simp, norm_cast]
-lemma RtimesR.cast_le (mn mn' : ℤ × ℤ) : (mn : ℝ × ℝ) ≤ mn' ↔  mn ≤ mn' := by
-  simp only [Prod.le_def, Int.cast_le]
-
-instance : Coe (ℕ × ℕ) (ℝ × ℝ) where
-  coe := fun p => (p.1, p.2)
-
-@[simp, norm_cast]
-lemma RtimesR.cast_le_ofNat (mn mn' : ℕ × ℕ) : (mn : ℝ × ℝ) ≤ mn' ↔  mn ≤ mn' := by
-  simp only [Int.cast_natCast, Prod.le_def, Nat.cast_le]
-
-@[simp, norm_cast]
-lemma RtimesR.cast_eq_ofNat (mn mn' : ℕ × ℕ) : (mn : ℝ × ℝ) = mn' ↔  mn = mn' := by
-  simp only [Int.cast_natCast, Prod.ext_iff, Nat.cast_inj]
-
-noncomputable def interpolate_points (f : ℤ → ℝ × ℝ) (t : ℝ) : ℝ × ℝ :=
-  let n := ⌊t⌋
-  (AffineMap.lineMap (f n) (f (n+1))) (t - ⌊t⌋)
-
-lemma interpolate_interpolates (f : ℤ → ℝ × ℝ) (i : ℤ) :
-  f i = interpolate_points f i := by
-  simp [interpolate_points]
-
-lemma interpolate_interpolates_zero (f : ℤ → ℝ × ℝ) :
-  f 0 = interpolate_points f 0 := by
-  rw [show (0 : ℝ) = (0 : ℤ) by norm_cast]
-  exact interpolate_interpolates f 0
-
-lemma interpolate_interpolates_one (f : ℤ → ℝ × ℝ) :
-  f 1 = interpolate_points f 1 := by
-  rw [show (1 : ℝ) = (1 : ℤ) by norm_cast]
-  exact interpolate_interpolates f 1
-
-
-lemma interpolate_add (i : ℤ) (f : ℤ → ℝ × ℝ) (t : ℝ) :
-  (interpolate_points f) (t + i)
-  = (interpolate_points (f ∘ (fun x ↦ x + i))) t := by
-  simp [interpolate_points]
-  rw [show ⌊t⌋ + i + 1 = ⌊t⌋ + 1 + i by group]
-
-lemma interpolate_add' (i : ℤ) (f : ℤ → ℝ × ℝ) :
-  (interpolate_points f) ∘  (fun x ↦ x + i)
-  = (interpolate_points (f ∘ (fun x ↦ x + i))) := by
-  funext t; exact interpolate_add i f t
-
-/-
-Interpolate maps to a segment on each [i, i+1]
--/
-lemma interpolate_section (i : ℤ) (f : ℤ → ℝ × ℝ) :
-  interpolate_points f '' (Set.Icc i (i+1 : ℤ)) = segment ℝ ((interpolate_points f) i) (( interpolate_points f) (i+1 : ℤ)) := by
-  -- Segments are lineMaps from [0, 1]
-  rw [segment_eq_image_lineMap]
-  rw [<-interpolate_interpolates, <-interpolate_interpolates]
-  -- The [1] case is quite simple
-  suffices interpolate_points f '' (Set.Ico (i : ℝ) ((i+1) : ℤ)) =
-    (AffineMap.lineMap (f i) (f (i + 1))) '' (Set.Ico (0 : ℝ) 1) by
-    rw [<-Set.Ico_union_right, <-Set.Ico_union_right]
-    · rw [Set.image_union, Set.image_union]
-      rw [<-this]
-      · simp only [Set.image_singleton, Set.union_singleton, interpolate_interpolates,
-        AffineMap.lineMap_apply_one]
-    · norm_num
-    norm_cast
-    exact Int.le.intro 1 rfl
-  -- The zero case
-  have : Set.Ico (i : ℝ) (i+1 : ℤ) = (fun (x : ℝ) => x + i) '' (Set.Ico (0 : ℝ) 1) := by
-    simp only [Int.cast_add, Int.cast_one, Set.image_add_right, Set.preimage_add_const_Ico,
-      sub_neg_eq_add, zero_add]
-    rw [add_comm]
-  rw [this]
-  rw [Set.image_image]
-  apply Set.image_congr
-  intro t th
-  rw [interpolate_add i f, interpolate_points]
-  have : ⌊t⌋ = 0 := by
-    exact Int.floor_eq_zero_iff.mpr th
-  simp [this]
-  rw [add_comm]
-
-lemma icc_accumulate (α : Type) [r : Semiring α] [CharZero α] [LinearOrder α] [IsOrderedRing α]  (n : ℕ) (h : 1 ≤ n) :
-  Set.Icc (0 : α) n = Set.Accumulate (fun (i : ℕ) ↦ Set.Icc (i : α) (i+1)) (n-1 : ℕ) := by
-  induction n, h using Nat.le_induction with
-  | base => simp
-  | succ n h ih =>
-    have : Set.Icc (0 : α) (n+1 : ℕ) = Set.Icc (0 : α) n ∪ Set.Icc n (n+1) := by
-      simp only [Nat.cast_add, Nat.cast_one, Nat.cast_nonneg, le_add_iff_nonneg_right, zero_le_one,
-        Set.Icc_union_Icc_eq_Icc, zero_le_one']
-      rw [Set.Icc_union_Icc_eq_Icc]
-      · apply le_trans zero_le_one
-        norm_cast
-      nth_rw 1 [<- add_zero (n : α)]
-      apply add_le_add_left zero_le_one
-    rw [show n + 1 - 1 = (n - 1) + 1 by omega]
-    rw [Set.accumulate_succ]
-    rw [<-ih]
-    rw [Nat.sub_add_cancel h]
-    exact this
-
-lemma icc_accumulate' (n : ℕ) (h : 1 ≤ n) :
-  Set.Icc 0 n = Set.Accumulate (fun i ↦ Set.Icc i (i+1)) (n-1 : ℕ) := by
-  apply icc_accumulate ℕ n h
-
-
-lemma image_accumulate (α β γ : Type) [LE α] (s : α → Set β) (x : α) (f : β → γ) :
-  f '' (Set.Accumulate s x) = (Set.Accumulate ((fun x ↦ f '' x) ∘ s) x) := by
-  unfold Set.Accumulate
-  simp [Set.image_eq_iUnion]
-
-
-lemma interpolate_preserves_monotonic (f : ℤ → ℝ × ℝ) (a b : ℤ) (s : Set (ℝ × ℝ)) :
-  Set.MapsTo f (Set.Icc a b) s →
-  Set.MapsTo (interpolate_points f) (Set.Icc a b)
-  (convexHull ℝ (s : Set (ℝ × ℝ))) := by
-  have : b < a ∨ b = a ∨ a < b := by
-    rw [<-or_assoc, ← le_iff_lt_or_eq, or_comm]
-    apply lt_or_le
-  rcases this with h | h | h
-  · have : Set.Icc (a : ℝ) b = ∅ := by
-      simp only [not_le] at h
-      rify at h
-      exact Set.Icc_eq_empty_of_lt h
+lemma subdivision_cauchy (i j n : ℕ) :
+  2^j * hilbert_curve i (n/(2^(2*j))) ≤ hilbert_curve (i+j) n ∧
+  hilbert_curve (i+j) n ≤ 2^j * hilbert_curve i (n/(2^(2*j))) + 2^j - 1 := by
+  induction j generalizing i with
+  | zero =>
+    simp only [pow_zero, mul_zero, Nat.div_one, one_mul, add_zero, le_refl, true_and]
+    exact le_refl _
+  | succ j ih =>
+    set m := n / 2 ^ (2 * j) with m_def
+    have : n / 2 ^ (2 * (j+1)) = m / 4 := by
+      rw [m_def, mul_add, pow_add]
+      simp [Nat.div_div_eq_div_mul]
     rw [this]
-    simp [Set.MapsTo]
-  · rw [h]
-    simp only [Set.Icc_self, Set.mapsTo_singleton]
-    rw [<-interpolate_interpolates]
-    apply subset_convexHull
-  rw [
-    show Set.Icc a b = (fun i ↦ (i + a)) '' Set.Icc 0 (b - a) by simp,
-    show Set.Icc (a : ℝ) b = (fun (i : ℝ) ↦ (i + a)) '' Set.Icc (0 : ℝ) (b - a) by simp
-    ]
-  rw [<-Int.cast_sub, Set.mapsTo_image_iff, Set.mapsTo_image_iff]
-  rw [interpolate_add' a f]
-  set l := (b - a).toNat with l_def
-  rw [show b - a = l by simp [l_def, le_of_lt h],
-    show (l : ℤ) = (l : ℝ) by norm_cast]
-  have lgood : 1 ≤ l := by zify; simp [l_def]; linarith
-  rw [icc_accumulate (α := ℤ) (h := lgood)]
-  rw [icc_accumulate (α := ℝ) (h := lgood)]
-  simp only [Set.accumulate_def, Set.mapsTo_iUnion]
-  intro h i ih
-  rw [Set.mapsTo',
-   show (i : ℝ) = (i : ℤ) by norm_cast,
-   show ((i : ℤ) + 1 : ℝ) = (i + 1 : ℤ) by norm_cast,
-    interpolate_section i]
-  apply segment_subset_convexHull <;> {
-    rw [<-interpolate_interpolates]
-    apply h i ih
-    simp
-  }
-
-lemma lineMap_reverse (t : ℝ) :
-  (AffineMap.lineMap 1 0) (1 - t) = t := by
-  simp [AffineMap.lineMap]
-
-lemma interpolate_neg (f : ℤ → ℝ × ℝ) (t : ℝ) :
-  (interpolate_points (f ∘ Neg.neg)) t = (interpolate_points f) (-t) := by
-  have : (∃ (z : ℤ), t = z) ∨ Int.fract t ≠ 0 := by
-    simp [Int.fract_eq_iff, -not_exists]
-    apply or_not (p := ∃(z: ℤ), t = z)
-  rcases this with ⟨i, h⟩ | h
-  · rw [h, <-Int.cast_neg, <-interpolate_interpolates]
-    rw [<-interpolate_interpolates]
-    simp
-  simp [interpolate_points]
-  nth_rw 2 [AffineMap.lineMap_symm]
-  rw [Int.fract_neg h]
-  rw [AffineMap.comp_apply, lineMap_reverse]
-  congr
-  · suffices -⌊t⌋ = ⌊-t⌋ + (1 : ℝ) by
-      exact_mod_cast this
-    simp [Int.floor_neg, Int.ceil_eq_add_one_sub_fract h]
-    ring_nf
-    simp
-  suffices (-1 : ℝ) + -⌊t⌋ = ⌊-t⌋ by
-    exact_mod_cast this
-  simp [Int.floor_neg, Int.ceil_eq_add_one_sub_fract h]
-  ring_nf
-  simp
-  ring_nf
-
-lemma neg_to_normal_eq_univ {α : Type} [Ring α] [LinearOrder α]
-  [IsOrderedRing α] [Archimedean α] :
-  ⋃ (a : ℕ), Set.Icc (-a : α) a = Set.univ := by
-  rw [Set.iUnion_eq_univ_iff]
-  simp
-  simp_rw [<-abs_le (G := α)]
-  intro x;
-  apply exists_nat_ge
-
-lemma interpolate_preserves (f : ℤ → ℝ × ℝ)  (s : Set (ℝ × ℝ)) :
-   Set.MapsTo f Set.univ s →
-   Set.MapsTo (interpolate_points f) Set.univ (convexHull ℝ s) := by
-  rw [<-neg_to_normal_eq_univ, <-neg_to_normal_eq_univ]
-  rw [Set.mapsTo_iUnion, Set.mapsTo_iUnion]
-  intro h i
-  exact_mod_cast interpolate_preserves_monotonic f (-i) i s (h i)
-
-
-lemma interpolate_map (f : ℤ → ℝ × ℝ) (g : ℝ × ℝ →ᵃ[ℝ] ℝ × ℝ) :
-  (interpolate_points (g ∘ f)) = g ∘ interpolate_points f := by
-  funext t
-  simp [interpolate_points, AffineMap.apply_lineMap]
-
-lemma interpolate_map' (f : ℤ → ℝ × ℝ) (g : ℝ × ℝ →ₗ[ℝ] ℝ × ℝ) :
-  (interpolate_points (g ∘ f)) = g ∘ interpolate_points f := by
-  apply interpolate_map (g := g.toAffineMap)
-
--- Interpolate is continuous
-
-/-
-#check (inferInstance : Repr ℝ)
-unsafe def test (x : ℝ) := x.cauchy
-
-#eval (1 : ℝ).cauchy
--/
-
-
--- How would do something like extend the cantorset -> [0, 1] to [0, 1] -> [0, 1]
+    rw [show (i + (j + 1)) = (i + 1) + j by group]
+    constructor
+    · rw [pow_add, pow_one, mul_assoc]
+      calc
+        2^j * (2 * hilbert_curve i (m / 4))
+        ≤ 2^j * (hilbert_curve (i + 1) m) := by
+          apply mul_le_mul_of_nonneg_left
+          · apply (subdivision_size _ _).1
+          simp
+       _ ≤ _ := by
+        exact (ih (i + 1)).1
+    apply le_trans (ih (i+1)).2
+    have := (subdivision_size i m).2
+    have : 2^j * hilbert_curve (i + 1) m ≤ 2^(j+1) * hilbert_curve i (m / 4) + 2^j := by
+      rw [show ∀a, a + (2^j : ℕ × ℕ) = a + 2^j * 1 by simp]
+      rw [pow_succ, mul_assoc, <-mul_add]
+      apply mul_le_mul_of_nonneg_left this (by simp)
+    nth_rw 2 [pow_succ]
+    rw [mul_two, <-add_assoc]
+    have one_le_two_pow : (1 : ℕ × ℕ) ≤ 2^j  := by rw [Prod.le_def]; simp [Nat.one_le_two_pow]
+    rw [NtimesN.add_sub_assoc (k := 1) one_le_two_pow]
+    rw [NtimesN.add_sub_assoc (k := 1) one_le_two_pow]
+    apply add_le_add_right this
 
 noncomputable def scale_map (s : ℝ) : ℝ × ℝ →ₗ[ℝ] ℝ × ℝ where
   toFun := fun p => s • p
@@ -1188,6 +1024,34 @@ lemma hilbert_interpolant_range (i : ℕ)  :
   apply (RtimesR.cast_le_ofNat _ (2^i, 2^i)).mpr
   apply le_trans (hilbert_curve_size _ _)
   simp
+
+
+lemma normal_hilbert_diff (i n : ℕ) :
+  dist (normalized_hilbert_curve i (n / hilbert_length i))
+    (normalized_hilbert_curve i ((n+1) / hilbert_length i)) ≤
+  (2^i)⁻¹ := by
+  sorry
+
+lemma normal_hilbert_dist (i : ℕ) (t : ℝ) :
+  dist (normalized_hilbert_curve i t)
+    (normalized_hilbert_curve i (⌊t * hilbert_length i⌋ / hilbert_length i)) ≤
+  (2^i)⁻¹ := by
+  sorry
+
+--lemma subdivision_size (i n : ℕ) :
+  --2 * hilbert_curve i (n/4) ≤ hilbert_curve (i+1) n ∧
+  --hilbert_curve (i+1) n ≤ 2 * hilbert_curve i (n/4) + 1 := by
+
+lemma normal_hilbert_across_dist (i n : ℕ) :
+  dist (normalized_hilbert_curve i ((n/4 : ℕ) / hilbert_length i))
+    (normalized_hilbert_curve (i+1) (n / hilbert_length (i+1))) ≤
+  (2^(i+1))⁻¹ := by
+  sorry
+
+lemma normal_subdivision_size (i : ℕ) (t : ℝ) :
+  dist (normalized_hilbert_curve i t)
+    (normalized_hilbert_curve (i+1) t) ≤ 5/2^(i+1) := by
+  sorry
 
 
 /-
