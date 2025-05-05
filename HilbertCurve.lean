@@ -1025,18 +1025,155 @@ lemma hilbert_interpolant_range (i : ℕ)  :
   apply le_trans (hilbert_curve_size _ _)
   simp
 
+lemma scale_map_dist (r : ℝ) (x y : ℝ × ℝ) (h : r ≥ 0):
+  dist ((scale_map r) x) ((scale_map r) y) =
+  r * dist x y := by
+  unfold scale_map
+  dsimp
+  rw [@dist_smul₀, Real.norm_eq_abs, abs_of_nonneg h]
+
+
+lemma div_mul_hilbert_length (i : ℕ) :
+  ∀n, (n : ℝ) / hilbert_length i * hilbert_length i = n := by
+  intro n
+  rw [div_mul_cancel₀]
+  norm_cast
+  linarith [hilbert_length_pos i]
+
+lemma normal_hilbert_of_int (i : ℕ) (n : ℤ) :
+  (normalized_hilbert_curve i (n / hilbert_length i))
+    = scale_map (2^i)⁻¹ (hilbert_curve i n.toNat) := by
+  unfold normalized_hilbert_curve
+  dsimp
+  rw [div_mul_hilbert_length, <-interpolate_interpolates]
+  simp
 
 lemma normal_hilbert_diff (i n : ℕ) :
   dist (normalized_hilbert_curve i (n / hilbert_length i))
     (normalized_hilbert_curve i ((n+1) / hilbert_length i)) ≤
   (2^i)⁻¹ := by
-  sorry
+  rw [show (n : ℝ) + 1 = (n + 1 : ℤ) by norm_cast]
+  rw [show (n : ℝ) = (n : ℤ) by norm_cast]
+  rw [normal_hilbert_of_int, normal_hilbert_of_int]
+  dsimp
+  rw [scale_map_dist (h := by positivity)]
+  apply mul_le_of_le_one_right (ha := by positivity)
+  change dist (hilbert_curve i n : ℤ × ℤ) (hilbert_curve i (n+1)) ≤ 1
+  rw [dist_comm]
+  rw [<-dist'_cast]
+  norm_cast
+  apply hilbert_diff
+
+lemma normalized_hilbert_curve_nonpos (i : ℕ) (t : ℝ) (h : t ≤ 0) :
+  normalized_hilbert_curve i t = normalized_hilbert_curve i 0 := by
+  by_cases h' : t = 0
+  · rw [h']
+  have h'' : t < 0 := by apply lt_of_le_of_ne h h'
+  unfold normalized_hilbert_curve
+  dsimp
+  simp only [zero_mul]
+  rw [show (0 : ℝ) = (0 : ℤ) by norm_cast]
+  --rw [show ((t : ℤ) * hilbert_length i : ℝ)= (n * hilbert_length i : ℤ) by norm_cast]
+  rw [<-interpolate_interpolates]--, <-interpolate_interpolates]
+  rw [interpolate_points]
+  have : ⌊t * (hilbert_length i)⌋.toNat = 0 := by
+    apply Int.toNat_of_nonpos
+    rify
+    apply le_trans (Int.floor_le (t * hilbert_length i))
+    apply mul_nonpos_of_nonpos_of_nonneg h
+      (by exact_mod_cast le_of_lt (hilbert_length_pos i))
+  dsimp
+  rw [this]
+  have : (⌊t * (hilbert_length i)⌋ + 1).toNat = 0 := by
+    apply Int.toNat_of_nonpos
+    suffices ⌊t * hilbert_length i⌋ ≤ -1 by
+      linarith
+    rw [Int.floor_le_iff]
+    simp only [Int.reduceNeg, Int.cast_neg, Int.cast_one, neg_add_cancel]
+    apply mul_neg_of_neg_of_pos h'' (by exact_mod_cast hilbert_length_pos i)
+  rw [this]
+  simp
+
+
+lemma normal_hilbert_diff' (i : ℕ) (n : ℤ) :
+  dist (normalized_hilbert_curve i (n / hilbert_length i))
+    (normalized_hilbert_curve i ((n+1) / hilbert_length i)) ≤
+  (2^i)⁻¹ := by
+  by_cases h : n < 0
+  · rw [normalized_hilbert_curve_nonpos (t := n / hilbert_length i),
+      normalized_hilbert_curve_nonpos (t := (n + 1) / hilbert_length i)]
+    rotate_left
+    · rw [div_nonpos_iff]
+      right
+      constructor
+      · norm_cast
+      exact_mod_cast le_of_lt (hilbert_length_pos i)
+    · rw [div_nonpos_iff]
+      right
+      constructor
+      · norm_cast; exact le_of_lt h
+      exact_mod_cast le_of_lt (hilbert_length_pos i)
+    simp
+  rw [show n = n.toNat from Eq.symm (Int.toNat_of_nonneg (by linarith [h]))]
+  apply normal_hilbert_diff
+
 
 lemma normal_hilbert_dist (i : ℕ) (t : ℝ) :
   dist (normalized_hilbert_curve i t)
     (normalized_hilbert_curve i (⌊t * hilbert_length i⌋ / hilbert_length i)) ≤
   (2^i)⁻¹ := by
-  sorry
+  unfold normalized_hilbert_curve
+  dsimp
+  rw [div_mul_hilbert_length]
+  apply le_trans (interpolate_distance _ (t * hilbert_length i))
+  suffices dist (normalized_hilbert_curve i (⌊t * hilbert_length i⌋ / hilbert_length i))
+    (normalized_hilbert_curve i ((⌊t * hilbert_length i⌋ + 1 : ℤ) / hilbert_length i)) ≤ (2^i)⁻¹ by
+    unfold normalized_hilbert_curve at this
+    dsimp at this
+    rw [div_mul_hilbert_length, div_mul_hilbert_length] at this
+    rw [<-interpolate_interpolates, <-interpolate_interpolates] at this
+    exact this
+  rw [show (⌊t * hilbert_length i⌋ + 1 : ℤ) = ⌊t * hilbert_length i⌋ + (1 : ℝ) by norm_cast]
+  apply normal_hilbert_diff' i (n := ⌊t * hilbert_length i⌋)
+
+lemma div_floor_mul_eq_floor (t : ℝ) (n : ℕ) (h : 0 ≤ t) (h' : 0 < n):
+  ⌊t * n⌋ / n = ⌊t⌋ := by
+  set k := ⌊t*n⌋ with k_def
+  symm
+  rw [Int.floor_eq_iff]
+  symm at k_def
+  have k_nonneg : 0 ≤ k := by positivity
+  rw [Int.floor_eq_iff] at k_def
+  rcases k_def with ⟨k1, k2⟩ -- k ≤ t * n, t * n < k + 1
+  have n_pos : 0 < (n : ℝ) := by exact_mod_cast h'
+  constructor
+  · show (k / n : ℤ) ≤ t
+    calc
+      ((k / n : ℤ) : ℝ) ≤ (k : ℝ) / n := by
+        rw [le_div_iff₀ n_pos]
+        suffices (k.toNat / n) * n ≤ k.toNat by
+          zify at this
+          rw [Int.toNat_of_nonneg] at this
+          · exact_mod_cast this
+          exact k_nonneg
+        apply Nat.div_mul_le_self
+      _ ≤ t := by
+        exact (div_le_iff₀ n_pos).mpr k1
+  show t < (k / n : ℤ) + 1
+  calc
+    t < (k + 1 : ℝ) / n := by
+      rw [lt_div_iff₀]
+      · exact k2
+      exact_mod_cast h'
+    _ ≤ (k/n : ℤ) + 1 := by
+      rw [div_le_iff₀ n_pos]
+      rw [show k = k.toNat by exact Int.eq_ofNat_toNat.mpr k_nonneg]
+      norm_cast
+      change k.toNat < (k.toNat / n + 1)*n
+      rw [mul_comm]
+      apply Nat.lt_mul_div_succ
+      exact h'
+
 
 --lemma subdivision_size (i n : ℕ) :
   --2 * hilbert_curve i (n/4) ≤ hilbert_curve (i+1) n ∧
@@ -1046,11 +1183,50 @@ lemma normal_hilbert_across_dist (i n : ℕ) :
   dist (normalized_hilbert_curve i ((n/4 : ℕ) / hilbert_length i))
     (normalized_hilbert_curve (i+1) (n / hilbert_length (i+1))) ≤
   (2^(i+1))⁻¹ := by
-  sorry
+  rw [show ((n/4 : ℕ) : ℝ) = ((n/4 : ℕ): ℤ) by norm_cast]
+  rw [normal_hilbert_of_int]
+  rw [show (n : ℝ) = (n: ℤ) by norm_cast]
+  rw [normal_hilbert_of_int]
+  rw [
+    show ∀x : ℝ × ℝ, scale_map (2^(i+1))⁻¹ x = scale_map (2^i)⁻¹ ((2 : ℝ)⁻¹ • x) by
+    rw [scale_map, scale_map, pow_succ, mul_inv]
+    intro x
+    rw [mul_comm]
+    simp only [LinearMap.coe_mk, AddHom.coe_mk, map_smul]
+    exact mul_smul 2⁻¹ (2 ^ i)⁻¹ x
+  ]
+  rw [scale_map_dist (r := (2^i)⁻¹) (h := by positivity)]
+  rw [pow_succ, mul_inv]
+  rw [mul_le_mul_left (by positivity)]
+  simp only [Nat.cast_ofNat, Int.toNat_ofNat]
+  have subd := subdivision_size i n
+  suffices
+    dist (2 * hilbert_curve i (n/4)) (hilbert_curve (i+1) n) ≤ 1 by
+    rw [
+      show hilbert_curve i (n/4) = (2 : ℝ)⁻¹ • ((2 * hilbert_curve i (n/4) : ℕ × ℕ) : ℝ × ℝ) by
+      simp
+    ]
+    rw [dist_smul₀]
+    simp
+    norm_cast
+  rw [dist_comm]
+  simp only [dist, sup_le_iff]
+  constructor
+  · rw [<-Nat.cast_sub subd.1.1]
+    simp [Prod.le_def] at subd
+    simp
+    rw [add_comm 1 (2 * _)]
+    exact subd.2.1
+  rw [<-Nat.cast_sub subd.1.2]
+  simp [Prod.le_def] at subd
+  simp
+  rw [add_comm 1 (2 * _)]
+  exact subd.2.2
+
 
 lemma normal_subdivision_size (i : ℕ) (t : ℝ) :
   dist (normalized_hilbert_curve i t)
-    (normalized_hilbert_curve (i+1) t) ≤ 5/2^(i+1) := by
+    (normalized_hilbert_curve (i+1) t) ≤ 1/2^(i-1) := by
   sorry
 
 
