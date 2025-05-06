@@ -928,12 +928,12 @@ noncomputable def normalized_hilbert_curve (i : ℕ) :=
     (scale_map (2^i)⁻¹) ∘ (↑) ∘ hilbert_curve i ∘ (fun x ↦ x.toNat)
   ) ∘ (fun t ↦ t * hilbert_length i)
 
-example (i : ℕ) : normalized_hilbert_curve i 0 = (0, 0) := by
+lemma normal_hilbert_start (i : ℕ) : normalized_hilbert_curve i 0 = (0, 0) := by
   simp [normalized_hilbert_curve]
   rw [<-interpolate_interpolates_zero]
   simp [hilbert_curve_start]
 
-example (i : ℕ) : normalized_hilbert_curve i ((hilbert_length i - 1)/hilbert_length i) = (1 - 1/2^i, 0) := by
+lemma normal_hilbert_end (i : ℕ) : normalized_hilbert_curve i ((hilbert_length i - 1)/hilbert_length i) = (1 - 1/2^i, 0) := by
   rw [normalized_hilbert_curve]
   simp
   rw [div_mul_cancel₀ _ (by norm_cast; linarith [hilbert_length_pos i])]
@@ -1224,15 +1224,71 @@ lemma normal_hilbert_across_dist (i n : ℕ) :
   exact subd.2.2
 
 
-lemma normal_subdivision_size (i : ℕ) (t : ℝ) :
+lemma normal_subdivision_size (i : ℕ) (t : ℝ) (ih : 1 ≤ i) :
   dist (normalized_hilbert_curve i t)
-    (normalized_hilbert_curve (i+1) t) ≤ 1/2^(i-1) := by
-  sorry
+    (normalized_hilbert_curve (i+1) t) ≤ (2^(i-1))⁻¹ := by
+  apply le_trans (dist_triangle4 _
+    (normalized_hilbert_curve i (⌊t * hilbert_length i⌋ / hilbert_length i))
+    (normalized_hilbert_curve (i+1) (⌊t * (hilbert_length (i+1))⌋ / (hilbert_length (i + 1))))
+    _)
+  have t1 : dist (normalized_hilbert_curve i t)
+    (normalized_hilbert_curve i (↑⌊t * ↑(hilbert_length i)⌋ / ↑(hilbert_length i))) ≤ (2^i)⁻¹ :=
+    normal_hilbert_dist i t
+  have t3 : dist (normalized_hilbert_curve (i+1) (⌊t * (hilbert_length (i+1))⌋ / (hilbert_length (i+1))))
+    (normalized_hilbert_curve (i+1) t) ≤ (2^(i+1))⁻¹ := by
+    rw [dist_comm]
+    exact normal_hilbert_dist (i+1) t
+  have t2 : dist (normalized_hilbert_curve i (⌊t * (hilbert_length i)⌋ / (hilbert_length i)))
+    (normalized_hilbert_curve (i+1) (⌊t * hilbert_length (i+1)⌋ / (hilbert_length (i+1)))) ≤ (2^(i+1))⁻¹ := by
+    by_cases h : t ≤ 0
+    · have : ∀n : ℕ, ⌊t * n⌋ / n ≤ (0 : ℝ) :=  by
+        intro n
+        apply div_nonpos_of_nonpos_of_nonneg
+        · norm_cast
+          apply Int.floor_nonpos
+          apply mul_nonpos_of_nonpos_of_nonneg
+          exact h
+          simp only [Nat.cast_nonneg]
+        simp only [Nat.cast_nonneg]
+      rw [normalized_hilbert_curve_nonpos i _ (this (hilbert_length i))]
+      rw [normalized_hilbert_curve_nonpos (i+1) _ (this (hilbert_length (i+1)))]
+      rw [normal_hilbert_start, normal_hilbert_start]
+      simp
+    simp only [not_le] at h
+    have : ⌊t * hilbert_length i⌋ = ⌊t * hilbert_length (i+1)⌋ / 4 := by
+      rw [hilbert_length_succ, mul_comm 4]
+      rw [Nat.cast_mul, Nat.cast_ofNat]
+      rw [<-mul_assoc]
+      symm
+      apply div_floor_mul_eq_floor
+      · positivity
+      norm_num
+    rw [this]
+    rw [show ⌊t * hilbert_length (i+1)⌋ = ⌊t * hilbert_length (i+1)⌋.toNat by
+      refine Int.eq_ofNat_toNat.mpr ?_
+      positivity
+    ]
+    rw [show ⌊t * hilbert_length (i+1)⌋.toNat / (4 : ℤ) = (⌊t * hilbert_length (i+1)⌋.toNat / 4 : ℕ) by
+      simp
+    ]
+    have : ∀n : ℕ, ((n : ℤ) : ℝ) = (n : ℝ) := by intro n; norm_cast
+    rw [this, this]
+    apply normal_hilbert_across_dist
+  rw [show ((2 : ℝ)^(i-1))⁻¹ = (2^i)⁻¹ + (2^(i+1))⁻¹ + (2^(i+1))⁻¹ by
+    rw [pow_add, pow_sub₀ _ (by norm_num) ih]
+    simp
+    ring
+  ]
+  linarith
 
+lemma normal_hilbert_curve_continuous (i : ℕ) :
+  Continuous (normalized_hilbert_curve i) := by
+  rw [normalized_hilbert_curve]
+  set f : ℤ → ℝ × ℝ := (⇑(scale_map (2 ^ i)⁻¹) ∘ (fun x ↦ (↑x.1, ↑x.2)) ∘ hilbert_curve i ∘ fun x ↦ x.toNat) with f_def
+  have := interpolate_is_continuous f
+  apply Continuous.comp this
+  apply continuous_mul_right
 
-/-
-Embedding into the reals + iteration defines a contracting map.
--/
 
 /-
 Embedding into the reals + iteration converges to a function.
