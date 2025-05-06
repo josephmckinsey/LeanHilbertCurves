@@ -1224,9 +1224,9 @@ lemma normal_hilbert_across_dist (i n : ℕ) :
   exact subd.2.2
 
 
-lemma normal_subdivision_size (i : ℕ) (t : ℝ) (ih : 1 ≤ i) :
+lemma normal_subdivision_size (i : ℕ) (t : ℝ) :
   dist (normalized_hilbert_curve i t)
-    (normalized_hilbert_curve (i+1) t) ≤ (2^(i-1))⁻¹ := by
+    (normalized_hilbert_curve (i+1) t) ≤ 2 * (2^i)⁻¹ := by
   apply le_trans (dist_triangle4 _
     (normalized_hilbert_curve i (⌊t * hilbert_length i⌋ / hilbert_length i))
     (normalized_hilbert_curve (i+1) (⌊t * (hilbert_length (i+1))⌋ / (hilbert_length (i + 1))))
@@ -1274,9 +1274,8 @@ lemma normal_subdivision_size (i : ℕ) (t : ℝ) (ih : 1 ≤ i) :
     have : ∀n : ℕ, ((n : ℤ) : ℝ) = (n : ℝ) := by intro n; norm_cast
     rw [this, this]
     apply normal_hilbert_across_dist
-  rw [show ((2 : ℝ)^(i-1))⁻¹ = (2^i)⁻¹ + (2^(i+1))⁻¹ + (2^(i+1))⁻¹ by
-    rw [pow_add, pow_sub₀ _ (by norm_num) ih]
-    simp
+  rw [show 2  * ((2 : ℝ)^i)⁻¹ = (2^i)⁻¹ + (2^(i+1))⁻¹ + (2^(i+1))⁻¹ by
+    rw [pow_add]
     ring
   ]
   linarith
@@ -1289,19 +1288,43 @@ lemma normal_hilbert_curve_continuous (i : ℕ) :
   apply Continuous.comp this
   apply continuous_mul_right
 
-
 /-
 Embedding into the reals + iteration converges to a function.
 -/
 
+lemma normal_is_cauchy (t : ℝ) : CauchySeq (normalized_hilbert_curve · t) := by
+  apply cauchySeq_of_le_geometric_two (C := 4)
+  intro n
+  rw [show 4 / 2 / (2:ℝ)^n = 2 * (2^n)⁻¹ by ring]
+  apply normal_subdivision_size
+
+
+lemma limit_hilbert_curve_exists (t : ℝ) :
+  ∃x, Filter.Tendsto (normalized_hilbert_curve · t) Filter.atTop (nhds x) := by
+  apply cauchySeq_tendsto_of_complete
+  exact normal_is_cauchy t
+
+noncomputable def limit_hilbert_curve (t : ℝ) : ℝ × ℝ :=
+  Classical.choose (limit_hilbert_curve_exists t)
+
+lemma limit_hilbert_curve_tendsto (t : ℝ) :
+  Filter.Tendsto (normalized_hilbert_curve · t) Filter.atTop (nhds (limit_hilbert_curve t)) :=
+  Classical.choose_spec (limit_hilbert_curve_exists t)
+
 /-
 The limit touches every point in [0,1]×[0,1]
 -/
+lemma limit_hilbert_surjective : Set.range limit_hilbert_curve = Set.Icc 0 1 := by
+  sorry
 
 /-
 The limit is continuous.
 -/
+lemma limit_hilbert_continuous : Continuous limit_hilbert_curve := by
+  sorry
 
 /-
 The limit is not injective.
 -/
+lemma limit_hilbert_not_injective : ¬(Set.InjOn limit_hilbert_curve (Set.Icc 0 1)) := by
+  sorry
