@@ -1311,20 +1311,92 @@ lemma limit_hilbert_curve_tendsto (t : ℝ) :
   Filter.Tendsto (normalized_hilbert_curve · t) Filter.atTop (nhds (limit_hilbert_curve t)) :=
   Classical.choose_spec (limit_hilbert_curve_exists t)
 
-/-
-The limit touches every point in [0,1]×[0,1]
--/
-lemma limit_hilbert_surjective : Set.range limit_hilbert_curve = Set.Icc 0 1 := by
-  sorry
+lemma eventually_geometric (ε : ℝ) (h : ε > 0): ∀ᶠ (n : ℕ) in Filter.atTop, 4/2^n < ε := by
+  suffices ∀ᶠ (n : ℕ) in Filter.atTop, 4 / ε < 2^n by
+    apply Filter.Eventually.mono this
+    intro n nh
+    rw [div_lt_iff₀ (by positivity)]
+    rw [mul_comm, <-div_lt_iff₀ h]
+    exact nh
+  simp only [Filter.eventually_atTop, ge_iff_le]
+  obtain ⟨N, Nh⟩ := pow_unbounded_of_one_lt (4/ε) (by norm_num : (1 : ℝ) < 2)
+  use N
+  intro M Mh
+  exact lt_of_lt_of_le Nh (pow_right_mono₀ (by norm_num) Mh)
+
+lemma limit_hilbert_curve_tendstouniformly :
+  TendstoUniformly normalized_hilbert_curve limit_hilbert_curve Filter.atTop := by
+  suffices ∀n t, dist (normalized_hilbert_curve n t) (limit_hilbert_curve t) ≤ 4 / 2 ^ n by
+    rw [Metric.tendstoUniformly_iff]
+    intro ε εpos
+    have : ∀ᶠ (n : ℕ) in Filter.atTop, ∀ t, dist (normalized_hilbert_curve n t) (limit_hilbert_curve t) ≤ 4 / 2^n := by
+      apply Filter.Eventually.of_forall
+      exact this
+    have := Filter.Eventually.and (eventually_geometric ε εpos) this
+    apply Filter.Eventually.mono this
+    intro n ⟨h1, h2⟩
+    intro t
+    rw [dist_comm]
+    exact lt_of_le_of_lt (h2 t) h1
+  intro n t
+  apply dist_le_of_le_geometric_two_of_tendsto (n := n)
+  · exact limit_hilbert_curve_tendsto t
+  intro n
+  rw [show 4 / 2 / (2:ℝ)^n = 2 * (2^n)⁻¹ by ring]
+  apply normal_subdivision_size
 
 /-
 The limit is continuous.
 -/
-lemma limit_hilbert_continuous : Continuous limit_hilbert_curve := by
+lemma limit_hilbert_continuous : Continuous limit_hilbert_curve :=
+  TendstoUniformly.continuous limit_hilbert_curve_tendstouniformly
+  (Filter.Eventually.of_forall normal_hilbert_curve_continuous)
+
+/-
+The limit touches every point in [0,1]×[0,1]
+-/
+lemma limit_hilbert_surjective : Set.range limit_hilbert_curve = Set.Icc 0 1 := by
+  apply subset_antisymm
+  · rw [Set.range_subset_iff]
+    intro t
+    have limit_def := limit_hilbert_curve_tendsto t
+    suffices ∀ᶠ (n : ℕ) in Filter.atTop, (normalized_hilbert_curve n t) ∈ Set.Icc 0 1 by
+      have zero_one_closed := isClosed_Icc (a := (0 : ℝ × ℝ)) (b := 1)
+      apply zero_one_closed.mem_of_tendsto limit_def this
+    apply Filter.Eventually.of_forall
+    intro n
+    exact hilbert_interpolant_range _ (Set.mem_range_self t)
+  intro x xy
+  suffices ∃f : ℕ → ℝ, ∃t : ℝ, Filter.Tendsto f Filter.atTop (nhds t) ∧
+    Filter.Tendsto (fun i ↦ normalized_hilbert_curve i (f i)) Filter.atTop (nhds x) by
+    rcases this with ⟨f, t, h, h'⟩
+    use t
+    have : Filter.Tendsto (fun i ↦ normalized_hilbert_curve i (f i))
+      Filter.atTop (nhds (limit_hilbert_curve t)) :=
+      TendstoUniformly.tendsto_comp
+        limit_hilbert_curve_tendstouniformly
+        (Continuous.continuousAt limit_hilbert_continuous)
+        h
+    exact tendsto_nhds_unique this h'
+  set y1 := fun i ↦ ⌊x.1 * 2^i⌋.toNat
+  set y2 := fun i ↦ ⌊x.2 * 2^i⌋.toNat
+  set f := fun i ↦ (hilbert_inverse i (y1 i, y2 i)) / (hilbert_length i : ℝ)
+  -- We'll get a subsequence of f that converges to some t
+  -- We'll also show that normalized_hilbert_curve i (f i) = ⌊x * 2^i⌋ / 2^i
+  -- Then we'll show that this converges to x. This completes the proof.
   sorry
+
+/-
+The hilbert curve is a fractal just like its construction, i.e.
+it can be broken up into 4 copies of itself.
+-/
 
 /-
 The limit is not injective.
 -/
 lemma limit_hilbert_not_injective : ¬(Set.InjOn limit_hilbert_curve (Set.Icc 0 1)) := by
   sorry
+
+/-
+The hilbert curve has Lipschitz constant 2.
+-/
