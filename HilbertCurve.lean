@@ -553,10 +553,8 @@ lemma limit_hilbert_surjective : Set.range limit_hilbert_curve = Set.Icc 0 1 := 
   exact norm_hilbert_inv_dist n x xy
 
 
-noncomputable def Real.T0 : ℝ × ℝ →L[ℝ] ℝ × ℝ := LinearMap.toContinuousLinearMap
-  { toFun := Prod.swap,
-    map_add' := by intros x y; simp [Prod.swap, Prod.add_def],
-    map_smul' := by intros a x; simp [Prod.swap, Prod.smul_def] }
+noncomputable def T0_real : ℝ × ℝ →L[ℝ] ℝ × ℝ := LinearMap.toContinuousLinearMap T0
+--noncomputable def T3_real : ℝ × ℝ →A[ℝ] ℝ × ℝ := AffineMap.toContinuousAffineMap T3
 
 -- First we'll find a sequence n_i s.t. n_i / hilbert_length i tends to t
 lemma floor_toNat_tends_to (t : ℝ) (h : 0 ≤ t) :
@@ -600,7 +598,7 @@ The hilbert curve is a fractal just like its construction, i.e.
 it can be broken up into 4 copies of itself.
 -/
 lemma limit_hilbert_recurse_top_left (t : ℝ) (h : t ∈ Set.Icc 0 (1/4)) :
-  limit_hilbert_curve t = Real.T0 (limit_hilbert_curve (4*t)) := by
+  limit_hilbert_curve t = T0_real (limit_hilbert_curve (4*t)) := by
   set f := fun i ↦ (⌊t * hilbert_length i⌋.toNat / hilbert_length i : ℝ)
   have f_tendsto : Filter.Tendsto f Filter.atTop (nhds t) :=
     floor_toNat_tends_to t h.1
@@ -614,25 +612,25 @@ lemma limit_hilbert_recurse_top_left (t : ℝ) (h : t ∈ Set.Icc 0 (1/4)) :
       exact Filter.tendsto_add_atTop_nat 1
     exact limit_hilbert_continuous.continuousAt
   have rhs_tendsto : Filter.Tendsto
-    (fun i ↦ Real.T0 (normalized_hilbert_curve i (4 * f i)))
+    (fun i ↦ T0_real (normalized_hilbert_curve i (4 * f i)))
     Filter.atTop
-    (nhds (Real.T0 (limit_hilbert_curve (4*t)))) := by
+    (nhds (T0_real (limit_hilbert_curve (4*t)))) := by
     apply TendstoUniformly.tendsto_comp
-      (f := (Real.T0 ∘ limit_hilbert_curve) ∘ ((4 : ℝ) * ·))
-      (F := fun i ↦ (Real.T0 ∘ (normalized_hilbert_curve i)) ∘ (4*·))
+      (f := (T0_real ∘ limit_hilbert_curve) ∘ ((4 : ℝ) * ·))
+      (F := fun i ↦ (T0_real ∘ (normalized_hilbert_curve i)) ∘ (4*·))
       (hg := f_tendsto)
     · apply TendstoUniformly.comp
       apply UniformContinuous.comp_tendstoUniformly ?_ (limit_hilbert_curve_tendstouniformly)
-      exact Real.T0.uniformContinuous
+      exact T0_real.uniformContinuous
     apply Continuous.continuousAt
     apply Continuous.comp
     · apply Continuous.comp
-      · exact Real.T0.continuous
+      · exact T0_real.continuous
       exact limit_hilbert_continuous
     exact continuous_mul_left 4
   have lhs_eq_rhs :
     (fun i ↦ normalized_hilbert_curve (i + 1) (f i)) =
-    (fun i ↦ Real.T0 (normalized_hilbert_curve i (4 * f i))) := by
+    (fun i ↦ T0_real (normalized_hilbert_curve i (4 * f i))) := by
     funext i
     sorry
   rw [lhs_eq_rhs] at lhs_tendsto

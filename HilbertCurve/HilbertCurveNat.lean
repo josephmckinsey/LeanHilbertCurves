@@ -220,7 +220,7 @@ lemma dist'_T3 (i : ℕ) (x y : ℕ × ℕ)
   -- We could use dist'_sub too
   rify
   rw [dist'_cast]
-  rw [<-T3_cast_nat _ _ h1 h2, <-T3_cast_nat _ _ h1' h2', T3, T3, dist'_cast]
+  rw [<-T3_cast_nat _ _ h1 h2, <-T3_cast_nat _ _ h1' h2', T3_eq, T3_eq, dist'_cast]
   rw [dist_sub_left]
   simp only [dist, RtimesR.coe_prod, Prod.swap_prod_mk, Int.cast_natCast]
   rw [sup_comm]

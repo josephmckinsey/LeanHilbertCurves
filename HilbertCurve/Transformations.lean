@@ -39,7 +39,11 @@ lemma ZtimesZ.cast_le (mn mn' : ℕ × ℕ) : mn ≤ mn' ↔ (mn : ℤ × ℤ) �
   simp [<-Prod.le_def]
 
 def T0_nat : ℕ × ℕ → ℕ × ℕ := Prod.swap
-def T0 : R × R→ R × R := Prod.swap
+def T0 : R × R →ₗ[R] R × R := {
+  toFun := Prod.swap
+  map_add' := by simp
+  map_smul' := by simp
+}
 
 lemma T0_cast (mn : ℕ × ℕ) :
   T0 (↑mn : R × R) = T0_nat mn := by
@@ -52,14 +56,26 @@ lemma T0_involutive {R : Type*} [Ring R] : Function.Involutive (T0 (R := R)) := 
   simp [Function.Involutive, T0]
 
 def T1_nat (i : ℕ) (mn : ℕ × ℕ) : ℕ × ℕ := mn + (0, 2^i)
-def T1 (i : ℕ) (mn : R × R) : R × R := mn + (0, 2^i)
+def T1 (i : ℕ) : R × R →ᵃ[R] R × R := {
+  toFun := fun mn => mn + (0, 2^i)
+  linear := LinearMap.id
+  map_vadd' p v := by
+    simp
+    rw [add_assoc]
+}
 
 lemma T1_cast_nat (i : ℕ) (mn : ℕ × ℕ) :
   T1 i (mn : R × R) = T1_nat i mn := by
   simp [T1, T1_nat, Prod.swap]
 
-def T1_inv (i : ℕ) (mn : R × R) : R × R := mn - (0, 2^i)
 def T1_inv_nat (i : ℕ) (mn : ℕ × ℕ) : ℕ × ℕ := mn - (0, 2^i)
+def T1_inv (i : ℕ) : R × R →ᵃ[R] R × R := {
+  toFun := fun mn => mn - (0, 2^i),
+  linear := LinearMap.id,
+  map_vadd' p v := by
+    simp
+    rw [add_sub_assoc]
+}
 
 lemma T1_inv_cast_nat (i : ℕ) (mn : ℕ × ℕ) (h : 2^i ≤ mn.2) :
   T1_inv (R := R) i mn = T1_inv_nat i mn := by
@@ -90,7 +106,13 @@ def T1_inv_of_T1_nat (i : ℕ) : Function.LeftInverse (T1_inv_nat i) (T1_nat i) 
   exact T1_nat_bound i mn
 
 def T2_nat (i : ℕ) (mn : ℕ × ℕ) : ℕ × ℕ := mn + (2^i, 2^i)
-def T2 (i : ℕ) (mn : R × R) : R × R := mn + (2^i, 2^i)
+def T2 (i : ℕ) : R × R →ᵃ[R] R × R := {
+  toFun := fun mn => mn + (2^i, 2^i),
+  linear := LinearMap.id,
+  map_vadd' p v := by
+    simp
+    rw [add_assoc]
+}
 
 lemma T2_cast_nat (i : ℕ) (mn : ℕ × ℕ) :
   T2 i (mn : R × R) = T2_nat i mn := by
@@ -111,12 +133,12 @@ lemma T2_inv_cast_nat (i : ℕ) (mn : ℕ × ℕ) (h : 2^i ≤ mn.1 ∧ 2^i ≤ 
 def T2_inv_of_T2 (i : ℕ) : Function.LeftInverse (T2_inv i) (T2 (R := R) i) := by
   simp only [Function.LeftInverse]
   intro mn
-  simp only [T2_inv, T2, add_sub_cancel_right]
+  simp [T2_inv, T2, add_sub_cancel_right]
 
 def T2_of_T2_inv (i : ℕ) : Function.RightInverse (T2_inv i) (T2 (R := R) i) := by
   simp only [Function.RightInverse]
   intro mn
-  simp only [T2, T2_inv, sub_add_cancel]
+  simp [T2, T2_inv, sub_add_cancel]
 
 def T2_inv_of_T2_nat (i : ℕ) : Function.LeftInverse (T2_inv_nat i) (T2_nat i) := by
   rw [Function.LeftInverse]
@@ -128,7 +150,20 @@ def T2_inv_of_T2_nat (i : ℕ) : Function.LeftInverse (T2_inv_nat i) (T2_nat i) 
   exact T2_nat_bound i mn
 
 def T3_nat (i : ℕ) (mn : ℕ × ℕ) : ℕ × ℕ := (2^(i+1) - 1, 2^i - 1) - mn.swap
-def T3 (i : ℕ) (mn : R × R) : R × R := (2^(i+1) - 1, 2^i - 1) - mn.swap
+def T3 (i : ℕ) : R × R →ᵃ[R] R × R := {
+  toFun := fun mn => (2^(i+1) - 1, 2^i - 1) - mn.swap
+  linear := -T0
+  map_vadd' p v := by
+    simp [T0]
+    set a := ((2 : R)^(i + 1) - 1, (2 : R)^i - 1)
+    -- For some reason, ring doesn't work
+    rw [add_comm, add_comm (-v.swap)]
+    rw [sub_eq_add_neg, sub_eq_add_neg, add_assoc, neg_add]
+}
+
+lemma T3_eq {i : ℕ} (mn : R × R) :
+  T3 i mn = (2^(i+1) - 1, 2^i - 1) - mn.swap := by
+  rfl
 
 lemma T3_cast_nat (i : ℕ) (mn : ℕ × ℕ) (h1 : mn.1 ≤ 2^i - 1) (h2 : mn.2 ≤ 2^(i+1) - 1) :
   T3 i (mn : R × R) = T3_nat i mn := by
@@ -156,12 +191,12 @@ lemma T3_inv_cast_nat (i : ℕ) (mn : ℕ × ℕ) (h1 : mn.1 ≤ 2^(i+1) - 1) (h
 def T3_inv_of_T3 (i : ℕ) : Function.LeftInverse (T3_inv i) (T3 (R := R) i) := by
   simp only [Function.LeftInverse]
   intro mn
-  simp only [T3_inv, T3, Prod.swap_sub, Prod.swap_prod_mk, Prod.swap_swap, sub_sub_cancel]
+  simp [T3_inv, T3, Prod.swap_sub, Prod.swap_prod_mk, Prod.swap_swap, sub_sub_cancel]
 
 def T3_of_T3_inv (i : ℕ) : Function.RightInverse (T3_inv i) (T3 (R := R) i) := by
   simp only [Function.RightInverse]
   intro mn
-  simp only [T3, T3_inv, Prod.swap_sub, Prod.swap_prod_mk, Prod.swap_swap, sub_sub_cancel]
+  simp [T3, T3_inv, Prod.swap_sub, Prod.swap_prod_mk, Prod.swap_swap, sub_sub_cancel]
 
 lemma T3_inv_of_T3_nat (i : ℕ) (mn : ℕ × ℕ) (h1 : mn.1 ≤ 2^i - 1) (h2 : mn.2 ≤ 2^(i+1) - 1) :
   T3_inv_nat i (T3_nat i mn) = mn := by
@@ -220,7 +255,7 @@ lemma T3_within_square (i : ℕ) (mn1 mn2 : ℕ × ℕ)
     apply le_trans h.2
     simp [pow_add]
     omega
-  unfold T3
+  simp only [T3_eq]
   have : ∀a b z : ℤ, (a - z, b - z) = (a,b) - z := by simp [Prod.sub_def]
   rw [this, this]
   have : ((2 : ℤ)^(i + 1 + 1), (2 : ℤ)^(i+1)) = 2 • (2^(i+1), 2^i) := by
