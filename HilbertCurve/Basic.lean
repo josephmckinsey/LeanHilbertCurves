@@ -1,8 +1,6 @@
 import Mathlib.Data.Nat.Basic
 import Mathlib.Tactic
 
-def hello := "world"
-
 def hilbert_length (i : ℕ) := 2^(2*i)
 
 /--

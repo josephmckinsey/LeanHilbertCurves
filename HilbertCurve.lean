@@ -1,922 +1,10 @@
 -- This module serves as the root of the `HilbertCurve` library.
 -- Import modules here that should be built as part of the library.
-import HilbertCurve.Basic
-import ProofWidgets.Data.Svg
-import ProofWidgets.Component.HtmlDisplay
-import Mathlib.Data.Nat.Basic
-import Mathlib.Tactic
-import Mathlib.Algebra.Order.Sub.Defs
-import HilbertCurve.Quadrants
-import HilbertCurve.Transformations
+
+import HilbertCurve.HilbertCurveNat
 import Mathlib.Data.Real.Basic -- Added import
 import Mathlib.Algebra.Order.Archimedean.Basic
 import HilbertCurve.LinearInterpolation
-
-open ProofWidgets Svg
-open scoped Real -- Added open scoped
-
-private def frame : Frame where
-  xmin   := -2
-  ymin   := -2
-  xSize  := 4
-  width  := 400
-  height := 400
-
-
-/-
-universe u in
-def hilbert_cases {motive : ℕ → Sort u} (i : ℕ) (n : ℕ)
-    (h1 : ∀n, n < hilbert_length i → motive n)
-    (h2 : ∀n, hilbert_length i ≤ n → n < 2*hilbert_length i → motive n)
-    (h3 : ∀n, 2*hilbert_length i ≤ n → n < 3*hilbert_length i → motive n)
-    (h4 : ∀n, 3*hilbert_length i ≤ n → motive n) : motive n :=
-  if h : n < hilbert_length i then
-    h1 n h
-  else if h' : n < 2 * hilbert_length i then
-    h2 n (Nat.le_of_not_lt h) h'
-  else if h'' : n < 3 * hilbert_length i then
-    h3 n (Nat.le_of_not_lt h') h''
-  else
-    h4 n (Nat.le_of_not_lt h'')
-
--/
-
-def hilbert_curve : ℕ → ℕ → (ℕ × ℕ)
-| 0 => fun _ => (0, 0)
-| .succ i => fun n => match get_quadrant i n with
-  | Quadrant.BOTTOM_LEFT =>
-    let h := hilbert_curve i n
-    T0' h
-  | Quadrant.TOP_LEFT => let h := hilbert_curve i (n - hilbert_length i)
-    T1' i h
-  | Quadrant.TOP_RIGHT => let h := hilbert_curve i (n - 2*hilbert_length i)
-    T2' i h
-  | Quadrant.BOTTOM_RIGHT =>
-    let h := hilbert_curve i (n - 3*hilbert_length i)
-    T3' i h
-    --(2^(i+1) - 1, 2^i - 1) - (h.2, h.1)
-
-/-
-def hilbert_curve : ℕ → ℕ → (ℕ × ℕ)
-| 0 => fun _ => (0, 0)
-| .succ i => fun n =>
-  if n < 2^(2*i) then
-    let h := hilbert_curve i n
-    (h.2, h.1)
-  else if n < 2*2^(2*i) then
-    let h := hilbert_curve i (n - 2^(2*i))
-    h + (0, 2^i)
-  else if n < 3*2^(2*i) then
-    let h := hilbert_curve i (n - 2*2^(2*i))
-    h + (2^i, 2^i)
-  else
-    let h := hilbert_curve i (n - 3*2^(2*i))
-    (2^(i+1) - 1 - h.2, 2^i - 1 - h.1)
--/
-
-/--
-info: (0, 0)
--/
-#guard_msgs in
-#eval hilbert_curve 0 0
-
-/--
-info: [(0, 0), (0, 1), (1, 1), (1, 0)]
--/
-#guard_msgs in
-#eval List.map (hilbert_curve 1) (List.range (2^2))
-
-def hilbert_inverse : ℕ → ℕ × ℕ → ℕ
-| 0 => fun _ => 0
-| .succ i => fun mn => match get_quadrant' i mn with
-  | Quadrant.BOTTOM_LEFT =>
-      hilbert_inverse i (T0' mn)
-  | Quadrant.TOP_LEFT =>
-    hilbert_length i + hilbert_inverse i (T1'_inv i mn)
-  | Quadrant.BOTTOM_RIGHT =>
-    3*hilbert_length i + hilbert_inverse i (T3'_inv i mn)
-  | Quadrant.TOP_RIGHT =>
-      2*hilbert_length i + hilbert_inverse i (T2'_inv i mn)
-
-#eval hilbert_curve 2 4
-#guard hilbert_inverse 10 (hilbert_curve 10 304) = 304
-
-/--
-  Create an SVG visualization of the i-th order Hilbert curve.
--/
-def hilbert_curve_svg (i : ℕ) : Svg frame :=
-  let total_points := hilbert_length i
-  let scale := (2^i : Nat).toFloat
-
-  -- Generate all line segments
-  let lineElements := (List.range (total_points - 1)).map (fun j =>
-    let (x1, y1) := hilbert_curve i j
-    let (x2, y2) := hilbert_curve i (j+1)
-
-    -- Scale points to fit in the frame
-    let p1 := (x1.toFloat / scale * 2 - 1, y1.toFloat / scale * 2 - 1)
-    let p2 := (x2.toFloat / scale * 2 - 1, y2.toFloat / scale * 2 - 1)
-
-    line p1 p2 |>.setStroke (0., 0., 1.) (.px 1))
-
-  { elements := lineElements.toArray }
-
--- Example: Display a Hilbert curve of order 2
-#html (hilbert_curve_svg 2).toHtml
-#html (hilbert_curve_svg 4).toHtml -- Looks good
-
-/--
-A hilbert curve begins at (0, 0)
--/
-lemma hilbert_curve_start (i : ℕ) : hilbert_curve i 0 = (0, 0) := by
-  induction i with
-  | zero => simp [hilbert_curve]
-  | succ i ih => rw [hilbert_curve]; simp [get_quadrant, T0', hilbert_length, ih]
-
-/--
-A hilbert curve ends at (2^i - 1, 0)
--/
-lemma hilbert_curve_end (i : ℕ) : hilbert_curve i (hilbert_length i - 1) = (2^i - 1, 0) := by
-  induction i with
-  | zero => simp [hilbert_curve]
-  | succ i ih =>
-    simp [hilbert_curve]
-    rw [get_quadrant_end]
-    dsimp
-    rw [hilbert_length_succ]
-    rw [show ∀a>0, 4*a - 1 - 3*a = a - 1 by intro a ah; omega]
-    · rw [ih]
-      simp [T3']
-    exact hilbert_length_pos i
-
-/-
-
-instance test : IsOrderedAddMonoid (ℕ × ℕ) where
-  add_le_add_left := by
-    intro a b
-    rcases a
-    rcases b
-    simp
-
-instance test2 : OrderedSub (ℕ × ℕ) where
-  tsub_le_iff_right := by
-    intro a b c
-    rcases a
-    rcases b
-    rcases c
-    simp
-
-instance : CanonicallyOrderedAdd (ℕ × ℕ) where
-  exists_add_of_le := by
-    intro a b h
-    rcases a with ⟨a1, a2⟩
-    rcases b with ⟨b1, b2⟩
-    rw [Prod.mk_le_mk] at h
-    have ⟨c1, c1h⟩ : ∃c1, b1 = a1 + c1 := exists_add_of_le h.1
-    have ⟨c2, c2h⟩ : ∃c2, b2 = a2 + c2 := exists_add_of_le h.2
-    use ⟨c1, c2⟩
-    simp [c1h, c2h]
-  le_self_add := by
-    intro a b
-    rcases a with ⟨a1, a2⟩
-    rcases b with ⟨b1, b2⟩
-    have self_add_a := le_self_add (a := a1) (b := b1)
-    have self_add_b := le_self_add (a := a2) (b := b2)
-    simp [self_add_a, self_add_b]
-
-
-instance test3 : IsOrderedCancelAddMonoid (ℕ × ℕ) where
-  le_of_add_le_add_left := by
-    intro a b c
-    rcases a; rcases b; rcases c
-    simp
--/
-
-#check (inferInstance : Ring (ℤ × ℤ))
-#check IsStrictOrderedRing ℤ
-
-lemma hilbert_curve_size (i n : ℕ) :
-  hilbert_curve i n ≤ (2^i -1, 2^i - 1) := by
-  induction i generalizing n with
-  | zero =>
-    simp [hilbert_curve]
-  | succ i ih =>
-    unfold hilbert_curve
-    split
-    · apply le_trans (b := (2^i - 1, 2^i - 1))
-      · exact Prod.swap_le_swap.mp (ih n)
-      simp; omega
-      --apply Prod.mk_le_mk.mpr
-    · have := ih (n - hilbert_length i)
-      dsimp
-      zify
-      rw [<-T1_cast, T1]
-      calc
-        (hilbert_curve i (n - hilbert_length i) : ℤ × ℤ) + (0, 2^i)
-        ≤ ((2 : ℤ)^i - 1, 2^i - 1) + (0, 2^i) := by
-          apply add_le_add_right
-          rw [show ((2 ^ i - 1, 2 ^ i - 1) : ℤ × ℤ) = ((2^i -1, 2^i - 1) : ℕ × ℕ) by simp]
-          exact_mod_cast ih (n - hilbert_length i)
-        _ = (2^i - 1, 2^i + 2^i - 1) := by simp; ring
-        _ = (2^i - 1, 2^(i+1) - 1) := by simp; ring
-        _ ≤ (2^(i+1) -1, 2^(i+1) - 1) := by simp [pow_add]
-      simp
-    · have := ih (n - 2*hilbert_length i)
-      dsimp
-      zify
-      rw [<-T2_cast, T2]
-      calc
-        (hilbert_curve i _ : ℤ × ℤ) + (2^i, 2^i) ≤ (2^i - 1, 2^i - 1) + (2^i, 2^i) := by
-          apply add_le_add_right
-          rw [show ((2 ^ i - 1, 2 ^ i - 1) : ℤ × ℤ) = ((2^i -1, 2^i - 1) : ℕ × ℕ) by simp]
-          exact_mod_cast ih _
-        _ = (2^(i+1) - 1, 2^(i+1) - 1) := by
-          simp [pow_add]; omega
-      simp
-    have := (T3'_bound i (hilbert_curve i (n - 3*hilbert_length i)))
-    refine ⟨this.1, ?_⟩
-    apply le_trans this.2
-    omega
-
-def sum_square : ℤ × ℤ → ℤ
-| (m, n) => m^2 + n^2
-
-lemma sum_square_eq_0_iff (a : ℤ × ℤ) :
-  sum_square a = 0 ↔ a = 0 := by
-  rw [sum_square]
-  have h : ∀a : ℤ, a^2 = (a^2).natAbs := by
-    intro a
-    simp only [Int.natCast_natAbs, abs_pow, sq_abs]
-  nth_rw 1 [h]
-  nth_rw 2 [h]
-  norm_cast
-  simp [Prod.ext_iff]
-
-
-def dist' (x y : ℕ × ℕ) : ℕ :=
-  ((x.1 : ℤ) - (y.1 : ℤ)).natAbs ⊔ ((x.2 : ℤ) - (y.2 : ℤ)).natAbs
-
-lemma dist'_symm (x y : ℕ × ℕ) :
-  dist' x y = dist' y x := by
-  unfold dist'
-  omega
-
-
-lemma dist'_flip (x y : ℕ × ℕ) :
-  dist' (x.2, x.1) (y.2, y.1) = dist' x y := by
-  unfold dist'
-  omega
-
-lemma dist'_add (x y z : ℕ × ℕ) :
-  dist' (x+z) (y+z) = dist' x y := by
-  unfold dist'
-  simp
-
-lemma dist'_eq_0 (x y : ℕ × ℕ) :
-  dist' x y = 0 ↔ x = y := by
-  rw [dist']
-  simp [Prod.ext_iff]
-  omega
-
-lemma dist'_sub {a b c : ℕ × ℕ} (h : a ≤ c) (h' : b ≤ c) :
-  dist' (c - a) (c - b) = dist' a b := by
-  simp [dist']
-  congr 1
-  · rw [Int.ofNat_sub (Prod.mk_le_mk.mp h).1]
-    rw [Int.ofNat_sub (Prod.mk_le_mk.mp h').1]
-    zify
-    rw [sub_sub_sub_cancel_left (c := (c.1 : ℤ))]
-    rw [abs_sub_comm]
-  rw [Int.ofNat_sub (Prod.mk_le_mk.mp h).2]
-  rw [Int.ofNat_sub (Prod.mk_le_mk.mp h').2]
-  zify
-  rw [sub_sub_sub_cancel_left (c := (c.2 : ℤ))]
-  rw [abs_sub_comm]
-
-@[simp]
-lemma dist'_T0' (x y : ℕ × ℕ) :
-  dist' (T0' x) (T0' y) = dist' x y := by
-  simp only [T0']
-  exact dist'_flip x y
-
-@[simp]
-lemma dist'_T1' (i : ℕ) (x y : ℕ × ℕ) :
-  dist' (T1' i x) (T1' i y) = dist' x y := by
-  simp [T1', dist'_add]
-
-@[simp]
-lemma dist'_T2' (i : ℕ) (x y : ℕ × ℕ) :
-  dist' (T2' i x) (T2' i y) = dist' x y := by
-  simp [T2', dist'_add]
-
-lemma dist'_cast (x y : ℕ × ℕ) :
-  dist' x y = dist (x : ℤ × ℤ) (y : ℤ × ℤ) := by
-  simp [dist', dist, Int.cast_natAbs]
-
-@[simp]
-lemma dist'_T3' (i : ℕ) (x y : ℕ × ℕ)
-  (h1 : x.1 ≤ 2 ^ i - 1) (h2 : x.2 ≤ 2 ^ (i + 1) - 1)
-  (h1' : y.1 ≤ 2 ^ i - 1) (h2' : y.2 ≤ 2 ^ (i + 1) - 1) :
-  dist' (T3' i x) (T3' i y) = dist' x y := by
-  -- We could use dist'_sub too
-  rify
-  rw [dist'_cast]
-  rw [<-T3_cast _ _ h1 h2, <-T3_cast _ _ h1' h2', T3, T3, dist'_cast]
-  rw [dist_sub_left]
-  simp only [dist, Prod.swap_prod_mk, Int.cast_natCast]
-  rw [sup_comm]
-
-lemma split_domain (i : ℕ) (n : ℕ) :
-  n < hilbert_length (i + 1) ↔
-  n < hilbert_length i ∨
-  (hilbert_length i ≤ n ∧ n < 2*hilbert_length i) ∨
-  (2*hilbert_length i ≤ n ∧ n < 3*hilbert_length i) ∨
-  (3*hilbert_length i ≤ n ∧ n < 4*hilbert_length i) := by
-  rw [hilbert_length_succ]
-  omega  -- I love omega
-
-lemma split_domain' (i : ℕ) (n : ℕ) :
-  n < hilbert_length i ∨
-  (hilbert_length i ≤ n ∧ n < 2*hilbert_length i) ∨
-  (2*hilbert_length i ≤ n ∧ n < 3*hilbert_length i) ∨
-  (3*hilbert_length i ≤ n) := by
-  omega
-
-lemma n_and_n_succ_adjacent_or_equal (i n : ℕ) :
-  let q1 := get_quadrant i n
-  let q2 := get_quadrant i (n+1)
-  adjacent q1 q2 ∨ q1 = q2 := by
-  have nsucc_lt {a : ℕ} (apos : a > 0) (h : n < a * hilbert_length i) :
-    n + 1 < a * hilbert_length i ∨ n+1 = a* hilbert_length i := by
-    omega
-  rcases split_domain' i n with h | h | h | h
-  · have := nsucc_lt (by norm_num : 1 > 0)
-    rw [one_mul] at this
-    replace this := this h
-    rcases this with same | different
-    <;> rw [get_quadrant, if_pos h, get_quadrant]
-    · rw [if_pos same]
-      right; rfl
-    rw [if_neg (by simp [different]), if_pos]
-    · left; trivial
-    omega
-  · have := nsucc_lt (by norm_num : 2 > 0)
-    replace this := this h.2
-    rcases this with same | different
-    <;> rw [get_quadrant, if_neg (Nat.not_lt.mpr h.1), if_pos h.2, get_quadrant, if_neg (by linarith)]
-    · rw [if_pos same]
-      right; rfl
-    rw [if_neg (by simp [different]), if_pos]
-    · left; trivial
-    omega
-  · have := nsucc_lt (by norm_num : 3 > 0) h.2
-    rcases this with same | different
-    <;> rw [get_quadrant, if_neg (by linarith), if_neg (Nat.not_lt.mpr h.1), if_pos h.2, get_quadrant, if_neg (by linarith), if_neg (by linarith)]
-    · rw [if_pos same]
-      right; rfl
-    rw [if_neg (by simp [different])]
-    left; trivial
-  · rw [get_quadrant, get_quadrant]
-    rw [if_neg (by linarith), if_neg (by linarith), if_neg (by linarith)]
-    rw [if_neg (by linarith), if_neg (by linarith), if_neg (by linarith)]
-    right; trivial
-
-def at_end (i n : ℕ) : Prop :=
-  (n + 1 = hilbert_length i) ∨
-  (n + 1 = 2 * hilbert_length i) ∨
-  (n + 1 = 3 * hilbert_length i)
-
-lemma hilbert_start1 (i : ℕ) :
-  hilbert_curve (i+1) (hilbert_length i - 1) = (0, 2^i - 1) := by
-  unfold hilbert_curve
-  have := (bottom_left_eq i (hilbert_length i - 1)).mpr (by simp [hilbert_length_pos])
-  simp [this, hilbert_curve_end, T0']
-
-lemma hilbert_end1 (i : ℕ) :
-  hilbert_curve (i+1) (hilbert_length i) = (0, 2^i) := by
-  unfold hilbert_curve
-  have := (top_left_eq i (hilbert_length i)).mpr (by simp [hilbert_length_pos])
-  simp [this, T1', hilbert_curve_start]
-
-lemma hilbert_start2 (i : ℕ) :
-  hilbert_curve (i+1) (2*hilbert_length i - 1) = (2^i - 1, 2^i) := by
-  unfold hilbert_curve
-  have := hilbert_length_pos i
-  have := (top_left_eq i (2*hilbert_length i - 1)).mpr (by omega)
-  have hilbert_length_minus1 : 2 * hilbert_length i - 1 - hilbert_length i = hilbert_length i - 1 := by
-    omega
-  simp [this, hilbert_length_minus1, T1', hilbert_curve_end]
-
-lemma hilbert_end2 (i : ℕ) :
-  hilbert_curve (i+1) (2*hilbert_length i) = (2^i, 2^i) := by
-  unfold hilbert_curve
-  have := hilbert_length_pos i
-  have := (top_right_eq i (2*hilbert_length i)).mpr (by omega)
-  rw [this]
-  simp [Nat.sub_self, hilbert_curve_start, T2']
-
-lemma hilbert_start3 (i : ℕ) :
-  hilbert_curve (i+1) (3*hilbert_length i - 1) = (2^(i+1) - 1, 2^i) := by
-  unfold hilbert_curve
-  have := hilbert_length_pos i
-  have := (top_right_eq i (3*hilbert_length i - 1)).mpr (by omega)
-  rw [this]
-  have : 3 * hilbert_length i - 1 - 2*hilbert_length i = hilbert_length i - 1 := by
-    omega
-  simp [this, hilbert_curve_end, T2', pow_add, pow_one]
-  omega
-
-lemma hilbert_end3 (i : ℕ) :
-  hilbert_curve (i+1) (3*hilbert_length i) = (2^(i+1) - 1, 2^i - 1) := by
-  unfold hilbert_curve
-  have := (bottom_right_eq i (3*hilbert_length i)).mpr (by omega)
-  rw [this]
-  zify
-  simp [<-T3_cast, T3, hilbert_curve_start]
-
-lemma n_and_n_succ_adjacent_or_equal' (i n : ℕ) :
-  let q1 := get_quadrant i n
-  let q2 := get_quadrant i (n+1)
-  at_end i n ∨ q1 = q2 := by
-  have nsucc_lt {a : ℕ} (apos : a > 0) (h : n < a * hilbert_length i) :
-    n + 1 < a * hilbert_length i ∨ n+1 = a* hilbert_length i := by
-    omega
-  rcases split_domain' i n with h | h | h | h
-  · have := nsucc_lt (by norm_num : 1 > 0)
-    rw [one_mul] at this
-    replace this := this h
-    rcases this with same | different
-    <;> rw [get_quadrant, if_pos h, get_quadrant]
-    · rw [if_pos same]
-      right; rfl
-    rw [if_neg (by simp [different]), if_pos]
-    · simp [at_end, different]
-    omega
-  · have := nsucc_lt (by norm_num : 2 > 0)
-    replace this := this h.2
-    rcases this with same | different
-    <;> rw [get_quadrant, if_neg (Nat.not_lt.mpr h.1), if_pos h.2, get_quadrant, if_neg (by linarith)]
-    · rw [if_pos same]
-      right; rfl
-    rw [if_neg (by simp [different]), if_pos]
-    · simp [at_end, different]
-    omega
-  · have := nsucc_lt (by norm_num : 3 > 0) h.2
-    rcases this with same | different
-    <;> rw [get_quadrant, if_neg (by linarith), if_neg (Nat.not_lt.mpr h.1), if_pos h.2, get_quadrant, if_neg (by linarith), if_neg (by linarith)]
-    · rw [if_pos same]
-      right; rfl
-    rw [if_neg (by simp [different])]
-    simp [at_end, different]
-  · rw [get_quadrant, get_quadrant]
-    rw [if_neg (by linarith), if_neg (by linarith), if_neg (by linarith)]
-    rw [if_neg (by linarith), if_neg (by linarith), if_neg (by linarith)]
-    right; trivial
-
-
-/--
-A hilbert curve moves by at most 1 each time
--/
-lemma hilbert_diff (i n : ℕ) : dist' (hilbert_curve i (n + 1)) (hilbert_curve i n) ≤ 1 := by
-  induction i generalizing n with
-  | zero => simp [hilbert_curve, dist']
-  | succ i ih =>
-    rcases n_and_n_succ_adjacent_or_equal' i n with (h | h | h) | h
-    · have : n = hilbert_length i - 1 := by omega
-      rw [h, this, hilbert_start1 i, hilbert_end1 i]
-      simp [dist']
-    · have : n = 2*hilbert_length i - 1 := by omega
-      rw [h, this, hilbert_start2 i, hilbert_end2 i]
-      simp [dist']
-    · have : n = 3*hilbert_length i - 1 := by omega
-      rw [h, this, hilbert_start3 i, hilbert_end3 i]
-      simp [dist']
-    rw [hilbert_curve]
-    dsimp
-    rw [<-h]
-    set q := get_quadrant i n with quad
-    have := hilbert_length_pos i
-    rcases q
-    · rw [dist'_T0']
-      exact ih n
-    · rw [dist'_T1']
-      have := (top_left_eq i n).mp quad.symm
-      rw [show n + 1 - hilbert_length i = (n - hilbert_length i) + 1 by omega]
-      exact ih (n - hilbert_length i)
-    · rw [dist'_T2']
-      have := (top_right_eq i n).mp quad.symm
-      rw [show n + 1 - 2*hilbert_length i = (n - 2*hilbert_length i) + 1 by omega]
-      exact ih (n - 2*hilbert_length i)
-    have := (bottom_right_eq i n).mp quad.symm
-    have h'_small : hilbert_curve i (n - 3*hilbert_length i) ≤ (2^i - 1, 2^(i+1) - 1) := by
-      apply le_trans (hilbert_curve_size i _)
-      simp [pow_add]
-      omega
-    have h_small : hilbert_curve i (n - 3 * hilbert_length i + 1) ≤ (2^i - 1, 2^(i+1) -1) := by
-      apply le_trans (hilbert_curve_size i _)
-      simp [pow_add]
-      omega
-    rw [show n + 1 - 3*hilbert_length i = (n - 3*hilbert_length i) + 1 by omega]
-    rw [dist'_T3' _ _ _ h_small.1 h_small.2 h'_small.1 h'_small.2]
-    exact ih (n - 3*hilbert_length i)
-
-
-lemma get_quadrant'_T0' (i : ℕ) (mn : ℕ × ℕ) (h : mn ≤ (2^i - 1, 2^i - 1)) :
-  get_quadrant' i (T0' mn) = Quadrant.BOTTOM_LEFT := by
-  simp only [get_quadrant', T0']
-  have : 2^i - 1 < 2^i := by simp
-  rw [if_pos, if_pos]
-  · apply lt_of_le_of_lt h.1 this
-  apply lt_of_le_of_lt h.2 this
-
-lemma get_quadrant'_T1' (i : ℕ) (mn : ℕ × ℕ) (h : mn ≤ (2^i - 1, 2^i - 1)) :
-  get_quadrant' i (T1' i mn) = Quadrant.TOP_LEFT := by
-  simp only [get_quadrant', T1']
-  have : 2^i - 1 < 2^i := by simp
-  rw [if_pos, if_neg]
-  · simp
-  apply lt_of_le_of_lt h.1 this
-
-lemma get_quadrant'_T2' (i : ℕ) (mn : ℕ × ℕ) :
-  get_quadrant' i (T2' i mn) = Quadrant.TOP_RIGHT := by
-  simp only [get_quadrant']
-  rw [if_neg, if_neg]
-  · simp [T2']
-  simp [T2']
-
-lemma get_quadrant'_T3' (i : ℕ) (mn : ℕ × ℕ) (h : mn ≤ (2^i - 1, 2^i - 1)) :
-  get_quadrant' i (T3' i mn) = Quadrant.BOTTOM_RIGHT := by
-  simp only [get_quadrant']
-  rw [if_neg, if_pos]
-  · suffices (T3' i mn : ℤ × ℤ).2 < 2^i by
-      zify
-      exact this
-    rw [<- T3_cast i _ h.1 (le_trans h.2 (by omega))]
-    simp [T3]
-    omega
-  suffices 2^i ≤ (T3' i mn : ℤ × ℤ).1 by
-    zify
-    simp [this]
-  rw [<- T3_cast i _ h.1 (le_trans h.2 (by omega))]
-  simp [T3]
-  suffices 2^i + mn.2 ≤ 2^(i+1) - (1 : ℤ) by
-    linarith
-  rw [pow_add, pow_one, mul_two, add_sub_assoc]
-  apply add_le_add_left
-  have : (2^i - 1 : ℤ) = (2^i - 1 : ℕ) := by
-    rw [Nat.cast_sub]
-    · norm_cast
-    exact Nat.one_le_two_pow
-  rw [this]
-  exact_mod_cast h.2
-
-lemma quadrant_preserved (i n : ℕ) :
-  get_quadrant' i (hilbert_curve (i+1) n) = get_quadrant i n := by
-  set q := get_quadrant i n with q_def
-  unfold hilbert_curve
-  rcases q <;> rw [<-q_def] <;> dsimp
-  · apply get_quadrant'_T0'
-    exact hilbert_curve_size i n
-  · apply get_quadrant'_T1'
-    exact hilbert_curve_size i _
-  · apply get_quadrant'_T2'
-  apply get_quadrant'_T3'
-  exact hilbert_curve_size i _
-
-lemma hilbert_inverse_size (i : ℕ) (mn : ℕ × ℕ) :
-  hilbert_inverse i mn < hilbert_length i := by
-  induction i generalizing mn with
-  | zero => simp [hilbert_length, hilbert_inverse]
-  | succ i ih =>
-    unfold hilbert_inverse
-    set q := get_quadrant' i mn with q_def
-    have := hilbert_length_pos i
-    rcases q
-    · simp [T0']
-      apply lt_trans (ih _)
-      rw [hilbert_length_succ]
-      linarith
-    · simp
-      calc
-        hilbert_length i + hilbert_inverse i _ < hilbert_length i + hilbert_length i := by
-          apply add_lt_add_left
-          exact ih _
-        _ < hilbert_length (i+1) := by
-          rw [hilbert_length_succ]
-          linarith
-    · simp
-      calc
-        2*hilbert_length i + hilbert_inverse i _ < 2*hilbert_length i + hilbert_length i := by
-          apply add_lt_add_left
-          exact ih _
-        _ < hilbert_length (i+1) := by
-          rw [hilbert_length_succ]
-          linarith
-    simp
-    calc
-      3*hilbert_length i + hilbert_inverse i _ < 3*hilbert_length i + hilbert_length i := by
-        apply add_lt_add_left
-        exact ih _
-      _ = hilbert_length (i+1) := by
-        rw [hilbert_length_succ]
-        group
-
-lemma quadrant'_preserved (i : ℕ) (mn : ℕ × ℕ) :
-  get_quadrant i (hilbert_inverse (i+1) mn) = get_quadrant' i mn := by
-  set q := get_quadrant' i mn with q_def
-  unfold hilbert_inverse
-  rcases q
-  · simp [<-q_def]
-    rw [bottom_left_eq]
-    exact hilbert_inverse_size i (mn.2, mn.1)
-  · simp [<-q_def]
-    rw [top_left_eq]
-    have := hilbert_inverse_size i (T1'_inv i mn)
-    constructor
-    · linarith
-    linarith
-  · simp [<-q_def]
-    have := hilbert_inverse_size i (T2'_inv i mn)
-    rw [top_right_eq]
-    constructor
-    · linarith
-    linarith
-  simp [<-q_def]
-  have := hilbert_inverse_size i (T3'_inv i mn)
-  rw [bottom_right_eq]
-  linarith
-
-/--
-A hilbert curve is injective on its length
--/
-example (i : ℕ) (n : ℕ) (h : n < hilbert_length i) :
-  hilbert_inverse i (hilbert_curve i n) = n := by
-  induction i generalizing n with
-  | zero =>
-    simp [hilbert_length] at h
-    rw [h]
-    simp [hilbert_curve, hilbert_inverse]
-  | succ i ih =>
-    have := quadrant_preserved i n
-    set q := get_quadrant i n with q_def
-    unfold hilbert_inverse
-    rw [this]
-    rcases q <;> dsimp <;> unfold hilbert_curve <;> rw [<-q_def]
-    · simp  [T0'_involutive]
-      apply ih
-      exact (bottom_left_eq i n).mp (Eq.symm q_def)
-    · simp only
-      rw [T1'_inv_of_T1']
-      have := (top_left_eq i n).mp (Eq.symm q_def)
-      rw [ih (n - hilbert_length i)]
-      · omega
-      omega
-    · simp only
-      rw [T2'_inv_of_T2']
-      have := (top_right_eq i n).mp (Eq.symm q_def)
-      rw [ih (n - 2*hilbert_length i)]
-      · omega
-      omega
-    simp only
-    have size := hilbert_curve_size i (n - 3 * hilbert_length i)
-    rw [T3'_inv_of_T3']
-    · rw [ih _]
-      · have := (bottom_right_eq i n).mp (Eq.symm q_def)
-        omega
-      rw [hilbert_length_succ] at h
-      omega
-    · exact size.1
-    apply le_trans size.2
-    omega
-
-
-/--
-A hilbert curve touches every point in the square
--/
-example (i : ℕ) (mn : ℕ × ℕ) (h : mn.1 < 2^i) (h' : mn.2 < 2^i) :
-  hilbert_curve i (hilbert_inverse i mn) = mn := by
-  induction i generalizing mn with
-  | zero =>
-    simp at h h'
-    rw [show mn = 0 from Prod.mk_eq_zero.mpr ⟨h, h'⟩]
-    simp [hilbert_inverse, hilbert_curve]
-  | succ i ih =>
-    unfold hilbert_curve
-    have := quadrant'_preserved i mn
-    rw [this]
-    unfold hilbert_inverse
-    set q := get_quadrant' i mn with q_def
-    rcases q <;> simp [<-q_def]
-    · have := (bottom_left_quad i mn).mp q_def.symm
-      rw [ih, T0'_involutive]
-      · rw [T0']; exact this.2
-      rw [T0']; exact this.1
-    · have := (top_left_quad i mn).mp q_def.symm
-      zify; rw [<-T1_cast]
-      rw [ih]
-      · rw [<-T1_inv_cast, T1_of_T1_inv]
-        exact this.1
-      · simp [T1'_inv, this.2]
-      simp [T1'_inv]
-      omega
-    · have := (top_right_quad i mn).mp q_def.symm
-      rw [ih]
-      · zify; rw [<-T2_cast, <-T2_inv_cast, T2_of_T2_inv]
-        exact this
-      · simp [T2'_inv]; omega
-      simp [T2'_inv]; omega
-    have := (bottom_right_quad i mn).mp q_def.symm
-    rw [ih]
-    · zify
-      rw [<-T3_cast, <-T3_inv_cast, T3_of_T3_inv]
-      · omega
-      · omega
-      · simp [T3'_inv]
-      simp [T3'_inv]
-    · simp [T3'_inv]
-      omega
-    simp [T3'_inv]; omega
-
-/--
-  Create an SVG visualization of two Hilbert curves of different orders.
--/
-def hilbert_curve_with_points (i : ℕ) : Svg frame :=
-  let total_points := hilbert_length i
-  let scale := (2^i : Nat).toFloat
-
-  -- Generate all line segments
-  let lineElements := (List.range (total_points - 1)).map (fun j =>
-    let (x1, y1) := hilbert_curve i j
-    let (x2, y2) := hilbert_curve i (j+1)
-
-    -- Scale points to fit in the frame
-    let p1 := (x1.toFloat / scale * 2 - 1, y1.toFloat / scale * 2 - 1)
-    let p2 := (x2.toFloat / scale * 2 - 1, y2.toFloat / scale * 2 - 1)
-
-    line p1 p2 |>.setStroke (0., 0., 1.) (.px 1))
-
-  -- Generate points at each coordinate
-  let pointElements := (List.range total_points).map (fun j =>
-    let (x, y) := hilbert_curve i j
-    -- Scale point to fit in the frame
-    let p := (x.toFloat / scale * 2 - 1, y.toFloat / scale * 2 - 1)
-    circle p (.abs 0.03) |>.setStroke (0.,0.,0.) (.px 1) |>.setFill (1.,0.,0.) |>.setId s!"point{j}")
-
-  { elements := (lineElements ++ pointElements).toArray }
-
--- Example: Display a Hilbert curve of order 2 with points
-#html (hilbert_curve_with_points 2).toHtml
-
-def compare_hilbert_curves (i j : ℕ) : Svg frame :=
-  let total_points_i := hilbert_length i
-  let total_points_j := hilbert_length j
-  let scale_i := (2^i : Nat).toFloat
-  let scale_j := (2^j : Nat).toFloat
-
-  -- Generate line segments for the first curve (red)
-  let lineElements_i := (List.range (total_points_i - 1)).map (fun k =>
-    let (x1, y1) := hilbert_curve i k
-    let (x2, y2) := hilbert_curve i (k+1)
-    let p1 := (x1.toFloat / scale_i * 2 - 1, y1.toFloat / scale_i * 2 - 1)
-    let p2 := (x2.toFloat / scale_i * 2 - 1, y2.toFloat / scale_i * 2 - 1)
-    line p1 p2 |>.setStroke (1., 0., 0.) (.px 4))
-
-  -- Generate line segments for the second curve (blue)
-  let lineElements_j := (List.range (total_points_j - 1)).map (fun k =>
-    let (x1, y1) := hilbert_curve j k
-    let (x2, y2) := hilbert_curve j (k+1)
-    let p1 := (x1.toFloat / scale_j * 2 - 1, y1.toFloat / scale_j * 2 - 1)
-    let p2 := (x2.toFloat / scale_j * 2 - 1, y2.toFloat / scale_j * 2 - 1)
-    line p1 p2 |>.setStroke (0., 0., 1.) (.px 1))
-
-  -- Generate points at each coordinate
-  let pointElements_i := (List.range total_points_i).map (fun j =>
-    let (x, y) := hilbert_curve i j
-    -- Scale point to fit in the frame
-    let p := (x.toFloat / scale_i * 2 - 1, y.toFloat / scale_i * 2 - 1)
-    circle p (.abs 0.05) |>.setStroke (0.,0.,0.) (.px 2) |>.setFill (1.,0.,0.) |>.setId s!"point{j}")
-
-  -- Generate points at each coordinate
-  let pointElements_j := (List.range total_points_j).map (fun k =>
-    let (x, y) := hilbert_curve j k
-    -- Scale point to fit in the frame
-    let p := (x.toFloat / scale_j * 2 - 1, y.toFloat / scale_j * 2 - 1)
-    circle p (.abs 0.02) |>.setStroke (0.,0.,0.) (.px 1) |>.setFill (0.,1.,0.) |>.setId s!"point{k}")
-
-
-  { elements := (lineElements_i ++ lineElements_j ++ pointElements_i ++ pointElements_j).toArray }
-
--- Example: Compare Hilbert curves of order 2 and 3
-#html (compare_hilbert_curves 2 3).toHtml
-
---rw [show b - c + d = b + d - c by rw [tsub_add_tsub_comm]]
-
-/-
-Each iteration subdivides each square
--/
-lemma subdivision_size (i n : ℕ) :
-  2 * hilbert_curve i (n/4) ≤ hilbert_curve (i+1) n ∧
-  hilbert_curve (i+1) n ≤ 2 * hilbert_curve i (n/4) + 1 := by
-  induction i generalizing n with
-  | zero =>
-    simp [hilbert_curve]
-    split
-    <;> simp [T0', T1', T2', T3', Prod.le_def]
-  | succ i ih =>
-    have two_def : (2 : ℕ × ℕ) = ((2 : ℕ), (2 : ℕ)) := rfl
-    unfold hilbert_curve
-    rw [get_quadrant_rec]
-    set q := get_quadrant i (n/4) with q_def
-    have two_swap : ∀mn, 2 * (mn : ℕ × ℕ).swap = (2 * mn).swap := by
-      simp [Prod.swap, Prod.mul_def]
-    have swap_one : ∀mn, (mn : ℕ × ℕ).swap + 1 = (mn + 1).swap := by
-      simp [Prod.swap, Prod.add_def]
-    rcases q
-    · dsimp
-      rw [T0', two_swap, swap_one, Prod.swap_le_swap, Prod.swap_le_swap]
-      exact ih n
-    · dsimp
-      apply T1_within_square
-      rw [hilbert_length_succ]
-      have : (n / 4 - hilbert_length i) = (n - 4 * hilbert_length i) / 4 := by
-        omega
-      rw [this]
-      apply ih
-    · dsimp
-      apply T2_within_square
-      have : (n / 4 - 2*hilbert_length i) = (n - 2*(4*hilbert_length i)) / 4 := by
-        omega
-      rw [hilbert_length_succ, this]
-      apply ih
-    dsimp
-    have : (n / 4 - 3*hilbert_length i) = (n - 3*(4*hilbert_length i)) / 4 := by
-      omega
-    rw [hilbert_length_succ, this]
-    apply T3_within_square
-    · exact hilbert_curve_size i ((n - 3 * (4 * hilbert_length i)) / 4)
-    · exact hilbert_curve_size (i + 1) (n - 3 * (4 * hilbert_length i))
-    apply ih
-
-instance : IsOrderedRing (ℕ × ℕ) where
-  add_le_add_left := by
-    intro a b h c
-    rw [Prod.le_def] at *
-    simpa
-  zero_le_one := by
-    rw [Prod.le_def]; simp
-  mul_le_mul_of_nonneg_left := by
-    intro a b c h h'
-    rw [Prod.le_def]
-    simp [mul_le_mul_of_nonneg_left h.1 h'.1,
-      mul_le_mul_of_nonneg_left h.2 h'.2]
-  mul_le_mul_of_nonneg_right :=  by
-    intro a b c h h'
-    rw [Prod.le_def]
-    simp [mul_le_mul_of_nonneg_right h.1 h'.1,
-      mul_le_mul_of_nonneg_right h.2 h'.2]
-
-lemma NtimesN.add_sub_assoc {m k : ℕ × ℕ} (h : k ≤ m) (n : ℕ × ℕ) : n + m - k = n + (m - k) := by
-  rw [Prod.ext_iff]
-  simp
-  rw [Nat.add_sub_assoc h.1, Nat.add_sub_assoc h.2]
-  simp
-
-lemma subdivision_cauchy (i j n : ℕ) :
-  2^j * hilbert_curve i (n/(2^(2*j))) ≤ hilbert_curve (i+j) n ∧
-  hilbert_curve (i+j) n ≤ 2^j * hilbert_curve i (n/(2^(2*j))) + 2^j - 1 := by
-  induction j generalizing i with
-  | zero =>
-    simp only [pow_zero, mul_zero, Nat.div_one, one_mul, add_zero, le_refl, true_and]
-    exact le_refl _
-  | succ j ih =>
-    set m := n / 2 ^ (2 * j) with m_def
-    have : n / 2 ^ (2 * (j+1)) = m / 4 := by
-      rw [m_def, mul_add, pow_add]
-      simp [Nat.div_div_eq_div_mul]
-    rw [this]
-    rw [show (i + (j + 1)) = (i + 1) + j by group]
-    constructor
-    · rw [pow_add, pow_one, mul_assoc]
-      calc
-        2^j * (2 * hilbert_curve i (m / 4))
-        ≤ 2^j * (hilbert_curve (i + 1) m) := by
-          apply mul_le_mul_of_nonneg_left
-          · apply (subdivision_size _ _).1
-          simp
-       _ ≤ _ := by
-        exact (ih (i + 1)).1
-    apply le_trans (ih (i+1)).2
-    have := (subdivision_size i m).2
-    have : 2^j * hilbert_curve (i + 1) m ≤ 2^(j+1) * hilbert_curve i (m / 4) + 2^j := by
-      rw [show ∀a, a + (2^j : ℕ × ℕ) = a + 2^j * 1 by simp]
-      rw [pow_succ, mul_assoc, <-mul_add]
-      apply mul_le_mul_of_nonneg_left this (by simp)
-    nth_rw 2 [pow_succ]
-    rw [mul_two, <-add_assoc]
-    have one_le_two_pow : (1 : ℕ × ℕ) ≤ 2^j  := by rw [Prod.le_def]; simp [Nat.one_le_two_pow]
-    rw [NtimesN.add_sub_assoc (k := 1) one_le_two_pow]
-    rw [NtimesN.add_sub_assoc (k := 1) one_le_two_pow]
-    apply add_le_add_right this
 
 noncomputable def scale_map (s : ℝ) : ℝ × ℝ →ₗ[ℝ] ℝ × ℝ where
   toFun := fun p => s • p
@@ -1352,6 +440,74 @@ lemma limit_hilbert_continuous : Continuous limit_hilbert_curve :=
   TendstoUniformly.continuous limit_hilbert_curve_tendstouniformly
   (Filter.Eventually.of_forall normal_hilbert_curve_continuous)
 
+lemma norm_hilbert_inv' (i : ℕ) (x : ℝ × ℝ) (xh : x ∈ Set.Icc 0 1):
+  ∃t, t ∈ Set.Icc 0 1 ∧ dist x (normalized_hilbert_curve i t) ≤ (2^i)⁻¹ := by
+  have : ∀n > (0 : ℕ), ∀a ∈ Set.Icc (0 : ℝ) n, ∃i ∈ Set.Ico 0 n, dist a (i : ℝ) ≤ 1 := by
+    intro n nh a ah
+    by_cases h : a = n
+    · use (n-1)
+      simp [nh, h]
+    use ⌊a⌋.toNat
+    have : 0 ≤ a := ah.1
+    constructor
+    · simp only [Set.mem_Ico, zero_le, true_and]
+      zify
+      rw [Int.toNat_of_nonneg (by positivity)]
+      rify
+      apply lt_of_le_of_lt (Int.floor_le a)
+      apply lt_of_le_of_ne ah.2 h
+    rw [show ∀x : ℕ, (x : ℝ) = (x : ℤ) by intro x; norm_cast]
+    rw [Int.toNat_of_nonneg (by positivity)]
+    simp only [dist]
+    rw [abs_of_nonneg]
+    · rw [sub_le_iff_le_add, add_comm]
+      exact le_of_lt (Int.lt_floor_add_one a)
+    rw [sub_nonneg]
+    exact Int.floor_le a
+  have bound : (x.1 * 2^i, x.2 * 2^i) ∈ Set.Icc 0 (2^i) := by
+    simpa only [Set.mem_Icc, Prod.le_def, Prod.fst_zero, Nat.ofNat_pos, pow_pos,
+      mul_nonneg_iff_of_pos_right, Prod.snd_zero, Prod.pow_fst, Prod.fst_ofNat,
+      mul_le_iff_le_one_left, Prod.pow_snd, Prod.snd_ofNat] using xh
+  obtain ⟨i1, i1h, i1h'⟩ := this (2^i) (by positivity) (x.1 * 2^i) ⟨bound.1.1, by exact_mod_cast bound.2.1⟩
+  obtain ⟨i2, i2h, i2h'⟩ := this (2^i) (by positivity) (x.2 * 2^i) ⟨bound.1.2, by exact_mod_cast bound.2.2⟩
+  set t : ℝ := (hilbert_inverse i (i1, i2)) / hilbert_length i with t_def
+  use t
+  constructor
+  · rw [t_def]
+    simp only [Set.mem_Icc]
+    refine ⟨by positivity, ?_⟩
+    rw [div_le_one (by exact_mod_cast (hilbert_length_pos i))]
+    exact_mod_cast le_of_lt (hilbert_inverse_size i _)
+  rw [t_def]
+  rw [show
+    (hilbert_inverse i (i1, i2) : ℝ) = (hilbert_inverse i (i1, i2) : ℤ) by
+    norm_cast]
+  rw [normal_hilbert_of_int i]
+  simp only [Int.toNat_ofNat]
+  rw [hilbert_curve_of_inverse (h := i1h.2) (h' := i2h.2)]
+  simp [scale_map]
+  rw [show x = ((2 : ℝ)^i)⁻¹ • (x * 2^i) by
+    rw [Prod.smul_def, Prod.mul_def]
+    field_simp
+  ]
+  rw [show (((2 : ℝ)^i)⁻¹ * i1, ((2 :ℝ)^i)⁻¹ * i2) = ((2 : ℝ)^i)⁻¹ • (i1, i2) by
+    simp]
+  rw [dist_smul₀]
+  simp only [norm_inv, norm_pow, Real.norm_ofNat, inv_pos, Nat.ofNat_pos, pow_pos,
+    mul_le_iff_le_one_right]
+  exact max_le i1h' i2h'
+
+noncomputable def norm_hilbert_inv (i : ℕ) (x : ℝ × ℝ) (xh : x ∈ Set.Icc 0 1) : ℝ :=
+  Classical.choose (norm_hilbert_inv' i x xh)
+
+lemma norm_hilbert_inv_bounded (i : ℕ) (x : ℝ × ℝ) (xh : x ∈ Set.Icc 0 1) :
+  (norm_hilbert_inv i x xh) ∈ Set.Icc 0 1 :=
+  (Classical.choose_spec (norm_hilbert_inv' i x xh)).1
+
+lemma norm_hilbert_inv_dist (i : ℕ) (x : ℝ × ℝ) (xh : x ∈ Set.Icc 0 1) :
+  dist x (normalized_hilbert_curve i (norm_hilbert_inv i x xh)) ≤ (2^i)⁻¹ :=
+  (Classical.choose_spec (norm_hilbert_inv' i x xh)).2
+
 /-
 The limit touches every point in [0,1]×[0,1]
 -/
@@ -1367,29 +523,120 @@ lemma limit_hilbert_surjective : Set.range limit_hilbert_curve = Set.Icc 0 1 := 
     intro n
     exact hilbert_interpolant_range _ (Set.mem_range_self t)
   intro x xy
-  suffices ∃f : ℕ → ℝ, ∃t : ℝ, Filter.Tendsto f Filter.atTop (nhds t) ∧
-    Filter.Tendsto (fun i ↦ normalized_hilbert_curve i (f i)) Filter.atTop (nhds x) by
-    rcases this with ⟨f, t, h, h'⟩
-    use t
-    have : Filter.Tendsto (fun i ↦ normalized_hilbert_curve i (f i))
+  have : IsCompact (Set.Icc (0 : ℝ) 1) := isCompact_Icc
+  obtain ⟨t, th, φ, φh, h⟩ := this.tendsto_subseq (norm_hilbert_inv_bounded (xh := xy) (x := x))
+  use t
+  set f := fun n ↦ norm_hilbert_inv n x xy
+  have h' : Filter.Tendsto (fun i ↦ normalized_hilbert_curve (φ i) (f (φ i)))
       Filter.atTop (nhds (limit_hilbert_curve t)) :=
       TendstoUniformly.tendsto_comp
-        limit_hilbert_curve_tendstouniformly
+        ((tendstoUniformly_iff_seq_tendstoUniformly.mp limit_hilbert_curve_tendstouniformly) φ
+          (StrictMono.tendsto_atTop φh))
         (Continuous.continuousAt limit_hilbert_continuous)
         h
-    exact tendsto_nhds_unique this h'
-  set y1 := fun i ↦ ⌊x.1 * 2^i⌋.toNat
-  set y2 := fun i ↦ ⌊x.2 * 2^i⌋.toNat
-  set f := fun i ↦ (hilbert_inverse i (y1 i, y2 i)) / (hilbert_length i : ℝ)
-  -- We'll get a subsequence of f that converges to some t
-  -- We'll also show that normalized_hilbert_curve i (f i) = ⌊x * 2^i⌋ / 2^i
-  -- Then we'll show that this converges to x. This completes the proof.
-  sorry
+  apply tendsto_nhds_unique h'
+  apply (Filter.tendsto_iff_seq_tendsto (k := Filter.atTop) (
+    f := fun i ↦ normalized_hilbert_curve i (f i)
+  )).mp ?_ φ (StrictMono.tendsto_atTop φh)
+  -- This might be a good one to split
+  --have := norm_hilbert_inv_dist i x xy
+  rw [tendsto_iff_dist_tendsto_zero]
+  have : Filter.Tendsto (fun n => ((2 : ℝ) ^ n)⁻¹) Filter.atTop (nhds 0) := by
+    rw [show (fun n ↦ ((2 : ℝ)^n)⁻¹) = fun n ↦ ((2 : ℝ)⁻¹)^n by
+      simp]
+    apply tendsto_pow_atTop_nhds_zero_of_abs_lt_one
+    rw [abs]
+    norm_num
+  apply squeeze_zero (fun n ↦ dist_nonneg) (g0 := this)
+  intro n
+  rw [dist_comm]
+  exact norm_hilbert_inv_dist n x xy
+
+
+noncomputable def Real.T0 : ℝ × ℝ →L[ℝ] ℝ × ℝ := LinearMap.toContinuousLinearMap
+  { toFun := Prod.swap,
+    map_add' := by intros x y; simp [Prod.swap, Prod.add_def],
+    map_smul' := by intros a x; simp [Prod.swap, Prod.smul_def] }
+
+-- First we'll find a sequence n_i s.t. n_i / hilbert_length i tends to t
+lemma floor_toNat_tends_to (t : ℝ) (h : 0 ≤ t) :
+  Filter.Tendsto (fun i ↦ (⌊t * hilbert_length i⌋.toNat : ℝ) / hilbert_length i)
+  Filter.atTop (nhds t) := by
+  have floor_nonneg : ∀i, 0 ≤ ⌊t * hilbert_length i⌋ := by
+    intro i; positivity
+  have : ∀i, dist
+    ((⌊t * hilbert_length i⌋.toNat : ℝ) / hilbert_length i) t ≤
+    1 / hilbert_length i := by
+    intro i
+    rw [dist_comm]
+    rw [show (⌊t * ↑(hilbert_length i)⌋.toNat : ℝ)
+      = (⌊t * ↑(hilbert_length i)⌋.toNat : ℤ) by norm_cast]
+    rw [Int.toNat_of_nonneg (floor_nonneg i)]
+    simp only [dist]
+    have : (0 : ℝ) < hilbert_length i := by
+      exact_mod_cast hilbert_length_pos i
+    rw [abs_of_nonneg]
+    · rw [le_div_iff₀ this, sub_mul]
+      rw [div_mul_cancel₀ _ (Ne.symm (ne_of_lt this))]
+      rw [sub_le_iff_le_add, add_comm]
+      exact le_of_lt (Int.lt_floor_add_one _)
+    apply sub_nonneg_of_le
+    rw [div_le_iff₀ this]
+    apply Int.floor_le
+  rw [tendsto_iff_dist_tendsto_zero]
+  apply squeeze_zero (g := fun i ↦ 1 / hilbert_length i)
+    (fun t_1 ↦ dist_nonneg) this
+  simp_rw [show
+    (fun i => (1 : ℝ) / (hilbert_length i : ℝ)) = fun i => (1/4)^i by
+    funext i
+    simp [hilbert_length, pow_mul]
+  ]
+  apply tendsto_pow_atTop_nhds_zero_of_abs_lt_one
+  rw [abs]
+  norm_num
 
 /-
 The hilbert curve is a fractal just like its construction, i.e.
 it can be broken up into 4 copies of itself.
 -/
+lemma limit_hilbert_recurse_top_left (t : ℝ) (h : t ∈ Set.Icc 0 (1/4)) :
+  limit_hilbert_curve t = Real.T0 (limit_hilbert_curve (4*t)) := by
+  set f := fun i ↦ (⌊t * hilbert_length i⌋.toNat / hilbert_length i : ℝ)
+  have f_tendsto : Filter.Tendsto f Filter.atTop (nhds t) :=
+    floor_toNat_tends_to t h.1
+  have lhs_tendsto : Filter.Tendsto
+    (fun i ↦ normalized_hilbert_curve (i + 1) (f i))
+    Filter.atTop
+    (nhds (limit_hilbert_curve t)) := by
+    apply TendstoUniformly.tendsto_comp (hg := f_tendsto)
+    · apply tendstoUniformly_iff_seq_tendstoUniformly.mp
+        limit_hilbert_curve_tendstouniformly
+      exact Filter.tendsto_add_atTop_nat 1
+    exact limit_hilbert_continuous.continuousAt
+  have rhs_tendsto : Filter.Tendsto
+    (fun i ↦ Real.T0 (normalized_hilbert_curve i (4 * f i)))
+    Filter.atTop
+    (nhds (Real.T0 (limit_hilbert_curve (4*t)))) := by
+    apply TendstoUniformly.tendsto_comp
+      (f := (Real.T0 ∘ limit_hilbert_curve) ∘ ((4 : ℝ) * ·))
+      (F := fun i ↦ (Real.T0 ∘ (normalized_hilbert_curve i)) ∘ (4*·))
+      (hg := f_tendsto)
+    · apply TendstoUniformly.comp
+      apply UniformContinuous.comp_tendstoUniformly ?_ (limit_hilbert_curve_tendstouniformly)
+      exact Real.T0.uniformContinuous
+    apply Continuous.continuousAt
+    apply Continuous.comp
+    · apply Continuous.comp
+      · exact Real.T0.continuous
+      exact limit_hilbert_continuous
+    exact continuous_mul_left 4
+  have lhs_eq_rhs :
+    (fun i ↦ normalized_hilbert_curve (i + 1) (f i)) =
+    (fun i ↦ Real.T0 (normalized_hilbert_curve i (4 * f i))) := by
+    funext i
+    sorry
+  rw [lhs_eq_rhs] at lhs_tendsto
+  apply tendsto_nhds_unique lhs_tendsto rhs_tendsto
 
 /-
 The limit is not injective.

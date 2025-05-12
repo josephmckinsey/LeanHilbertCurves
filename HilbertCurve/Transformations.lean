@@ -3,30 +3,19 @@ import Mathlib.Tactic
 import Mathlib.Algebra.Order.Sub.Defs
 import HilbertCurve.Basic
 
-instance : Coe (ℕ × ℕ) (ℤ × ℤ) where
-  coe := fun p => (p.1, p.2)
+variable {R : Type*} [Ring R]
 
-open Lean Meta PrettyPrinter Delaborator Elab Expr in
-/-- Delaborator for `(p : ℕ × ℕ) : ℤ × ℤ` to make it print as `↑p` instead of `(p.1, p.2)`. -/
-@[delab app.Coe.coe]
-def delabNatProdToCoe : Delab := do
-  let e ← SubExpr.getExpr
-  guard (e.isAppOfArity ``Coe.coe 3)
-  let ty := e.appArg!
-  guard (ty.isAppOfArity ``Prod 2)
-  guard (ty.getArg! 0 == mkConst ``Int)
-  guard (ty.getArg! 1 == mkConst ``Int)
-  let p := e.getArg! 1
-  let pTy ← inferType p
-  guard (pTy.isAppOfArity ``Prod 2)
-  guard (pTy.getArg! 0 == mkConst ``Nat)
-  guard (pTy.getArg! 1 == mkConst ``Nat)
-  `(↑$(← delab p))
+@[coe]
+def NtimesN.toRtimesR : ℕ × ℕ → R × R := fun p => (p.1, p.2)
 
-theorem coe_nat_prod_def (p : ℕ × ℕ) : (p : ℤ × ℤ) = (p.1, p.2) := rfl
+instance : Coe (ℕ × ℕ) (R × R) where
+  coe := NtimesN.toRtimesR
 
-@[simp] theorem coe_nat_prod_fst (p : ℕ × ℕ) : (p : ℤ × ℤ).1 = p.1 := rfl
-@[simp] theorem coe_nat_prod_snd (p : ℕ × ℕ) : (p : ℤ × ℤ).2 = p.2 := rfl
+@[simp]
+theorem RtimesR.coe_prod (p : ℕ × ℕ) : (p : R × R) = (↑p.1, ↑p.2) := rfl
+
+@[simp] theorem RtimesR.coe_first (p : ℕ × ℕ) : (p : R × R).1 = p.1 := rfl
+@[simp] theorem RtimesR.coe_second (p : ℕ × ℕ) : (p : R × R).2 = p.2 := rfl
 
 @[simp, norm_cast]
 lemma NtimesN.cast_inj (mn mn' : ℕ × ℕ) : (mn : ℤ × ℤ) = mn' ↔ mn = mn' := by
@@ -49,200 +38,179 @@ lemma NtimesN.cast_le (mn mn' : ℕ × ℕ) : (mn : ℤ × ℤ) ≤ mn' ↔ mn �
 lemma ZtimesZ.cast_le (mn mn' : ℕ × ℕ) : mn ≤ mn' ↔ (mn : ℤ × ℤ) ≤ mn' := by
   simp [<-Prod.le_def]
 
-def T0 : ℤ × ℤ → ℤ × ℤ := Prod.swap
-def T0' : ℕ × ℕ → ℕ × ℕ := Prod.swap
+def T0_nat : ℕ × ℕ → ℕ × ℕ := Prod.swap
+def T0 : R × R→ R × R := Prod.swap
 
 lemma T0_cast (mn : ℕ × ℕ) :
-  T0 (mn : ℤ × ℤ) = T0' mn := by
-  simp [T0, T0', Prod.swap]
+  T0 (↑mn : R × R) = T0_nat mn := by
+  simp [T0_nat, T0, Prod.swap]
 
-lemma T0_involutive : Function.Involutive T0 := by
+lemma T0_nat_involutive : Function.Involutive T0_nat := by
+  simp [Function.Involutive, T0_nat]
+
+lemma T0_involutive {R : Type*} [Ring R] : Function.Involutive (T0 (R := R)) := by
   simp [Function.Involutive, T0]
 
-lemma T0'_involutive : Function.Involutive T0' := by
-  simp [Function.Involutive, T0']
+def T1_nat (i : ℕ) (mn : ℕ × ℕ) : ℕ × ℕ := mn + (0, 2^i)
+def T1 (i : ℕ) (mn : R × R) : R × R := mn + (0, 2^i)
 
-def T1 (i : ℕ) (mn : ℤ × ℤ) : ℤ × ℤ := mn + (0, 2^i)
-def T1' (i : ℕ) (mn : ℕ × ℕ) : ℕ × ℕ := mn + (0, 2^i)
+lemma T1_cast_nat (i : ℕ) (mn : ℕ × ℕ) :
+  T1 i (mn : R × R) = T1_nat i mn := by
+  simp [T1, T1_nat, Prod.swap]
 
-lemma T1_cast (i : ℕ) (mn : ℕ × ℕ) :
-  T1 i (mn : ℤ × ℤ) = T1' i mn := by
-  simp [T1, T1', Prod.swap]
+def T1_inv (i : ℕ) (mn : R × R) : R × R := mn - (0, 2^i)
+def T1_inv_nat (i : ℕ) (mn : ℕ × ℕ) : ℕ × ℕ := mn - (0, 2^i)
 
-def T1_inv (i : ℕ) (mn : ℤ × ℤ) : ℤ × ℤ := mn - (0, 2^i)
-def T1'_inv (i : ℕ) (mn : ℕ × ℕ) : ℕ × ℕ := mn - (0, 2^i)
+lemma T1_inv_cast_nat (i : ℕ) (mn : ℕ × ℕ) (h : 2^i ≤ mn.2) :
+  T1_inv (R := R) i mn = T1_inv_nat i mn := by
+  simp [T1_inv, T1_inv_nat, Nat.cast_sub h]
 
-lemma T1_inv_cast (i : ℕ) (mn : ℕ × ℕ) (h : 2^i ≤ mn.2) :
-  T1_inv i mn = T1'_inv i mn := by
-  simp [T1'_inv, T1_inv, Nat.cast_sub h]
-
-lemma T1'_bound (i : ℕ) (mn : ℕ × ℕ) :
-  2 ^ i ≤ (T1' i mn).2 := by
-  unfold T1'
+lemma T1_nat_bound (i : ℕ) (mn : ℕ × ℕ) :
+  2 ^ i ≤ (T1_nat i mn).2 := by
+  unfold T1_nat
   simp
 
-def T1_inv_of_T1 (i : ℕ) : Function.LeftInverse (T1_inv i) (T1 i) := by
+def T1_inv_of_T1 (i : ℕ) : Function.LeftInverse (T1_inv i) (T1 (R := R) i) := by
   simp only [Function.LeftInverse]
   intro mn
-  simp only [T1_inv, T1, add_sub_cancel_right]
+  simp [T1_inv, T1]
 
-def T1_of_T1_inv (i : ℕ) : Function.RightInverse (T1_inv i) (T1 i) := by
+def T1_of_T1_inv (i : ℕ) : Function.RightInverse (T1_inv i) (T1 (R := R) i) := by
   simp only [Function.RightInverse]
   intro mn
-  simp only [T1, T1_inv, sub_add_cancel]
+  simp [T1, T1_inv]
 
-def T1'_inv_of_T1' (i : ℕ) : Function.LeftInverse (T1'_inv i) (T1' i) := by
+def T1_inv_of_T1_nat (i : ℕ) : Function.LeftInverse (T1_inv_nat i) (T1_nat i) := by
   rw [Function.LeftInverse]
   intro mn
   zify
-  rw [<-T1_inv_cast i (T1' i mn)]
-  rw [<-T1_cast i mn]
+  rw [<-T1_inv_cast_nat i (T1_nat i mn)]
+  rw [<-T1_cast_nat i mn]
   · apply T1_inv_of_T1
-  exact T1'_bound i mn
+  exact T1_nat_bound i mn
 
-def T2 (i : ℕ) (mn : ℤ × ℤ) : ℤ × ℤ := mn + (2^i, 2^i)
-def T2' (i : ℕ) (mn : ℕ × ℕ) : ℕ × ℕ := mn + (2^i, 2^i)
+def T2_nat (i : ℕ) (mn : ℕ × ℕ) : ℕ × ℕ := mn + (2^i, 2^i)
+def T2 (i : ℕ) (mn : R × R) : R × R := mn + (2^i, 2^i)
 
-lemma T2_cast (i : ℕ) (mn : ℕ × ℕ) :
-  T2 i (mn : ℤ × ℤ) = T2' i mn := by
-  simp [T2, T2']
+lemma T2_cast_nat (i : ℕ) (mn : ℕ × ℕ) :
+  T2 i (mn : R × R) = T2_nat i mn := by
+  simp [T2_nat, T2]
 
-def T2_inv (i : ℕ) (mn : ℤ × ℤ) : ℤ × ℤ := mn - (2^i, 2^i)
-def T2'_inv (i : ℕ) (mn : ℕ × ℕ) : ℕ × ℕ := mn - (2^i, 2^i)
+def T2_inv_nat (i : ℕ) (mn : ℕ × ℕ) : ℕ × ℕ := mn - (2^i, 2^i)
+def T2_inv (i : ℕ) (mn : R × R) : R × R := mn - (2^i, 2^i)
 
-lemma T2'_bound (i : ℕ) (mn : ℕ × ℕ) :
-  2 ^ i ≤ (T2' i mn).1 ∧ 2^i ≤ (T2' i mn).2 := by
-  unfold T2'
+lemma T2_nat_bound (i : ℕ) (mn : ℕ × ℕ) :
+  2 ^ i ≤ (T2_nat i mn).1 ∧ 2^i ≤ (T2_nat i mn).2 := by
+  unfold T2_nat
   simp only [Prod.fst_add, le_add_iff_nonneg_left, zero_le, Prod.snd_add, and_self]
 
-lemma T2_inv_cast (i : ℕ) (mn : ℕ × ℕ) (h : 2^i ≤ mn.1 ∧ 2^i ≤ mn.2) :
-  T2_inv i mn = T2'_inv i mn := by
-  simp [T2'_inv, T2_inv, Nat.cast_sub h.1, Nat.cast_sub h.2]
+lemma T2_inv_cast_nat (i : ℕ) (mn : ℕ × ℕ) (h : 2^i ≤ mn.1 ∧ 2^i ≤ mn.2) :
+  T2_inv i (mn : R × R) = T2_inv_nat i mn := by
+  simp [T2_inv_nat, T2_inv, Nat.cast_sub h.1, Nat.cast_sub h.2]
 
-def T2_inv_of_T2 (i : ℕ) : Function.LeftInverse (T2_inv i) (T2 i) := by
+def T2_inv_of_T2 (i : ℕ) : Function.LeftInverse (T2_inv i) (T2 (R := R) i) := by
   simp only [Function.LeftInverse]
   intro mn
   simp only [T2_inv, T2, add_sub_cancel_right]
 
-def T2_of_T2_inv (i : ℕ) : Function.RightInverse (T2_inv i) (T2 i) := by
+def T2_of_T2_inv (i : ℕ) : Function.RightInverse (T2_inv i) (T2 (R := R) i) := by
   simp only [Function.RightInverse]
   intro mn
   simp only [T2, T2_inv, sub_add_cancel]
 
-def T2'_inv_of_T2' (i : ℕ) : Function.LeftInverse (T2'_inv i) (T2' i) := by
+def T2_inv_of_T2_nat (i : ℕ) : Function.LeftInverse (T2_inv_nat i) (T2_nat i) := by
   rw [Function.LeftInverse]
   intro mn
   zify
-  rw [<-T2_inv_cast i (T2' i mn)]
-  rw [<-T2_cast i mn]
+  rw [<-T2_inv_cast_nat i (T2_nat i mn)]
+  rw [<-T2_cast_nat i mn]
   · apply T2_inv_of_T2
-  exact T2'_bound i mn
+  exact T2_nat_bound i mn
 
-def T3 (i : ℕ) (mn : ℤ × ℤ) : ℤ × ℤ := (2^(i+1) - 1, 2^i - 1) - mn.swap
-def T3' (i : ℕ) (mn : ℕ × ℕ) : ℕ × ℕ := (2^(i+1) - 1, 2^i - 1) - mn.swap
+def T3_nat (i : ℕ) (mn : ℕ × ℕ) : ℕ × ℕ := (2^(i+1) - 1, 2^i - 1) - mn.swap
+def T3 (i : ℕ) (mn : R × R) : R × R := (2^(i+1) - 1, 2^i - 1) - mn.swap
 
-lemma T3_cast (i : ℕ) (mn : ℕ × ℕ) (h1 : mn.1 ≤ 2^i - 1) (h2 : mn.2 ≤ 2^(i+1) - 1) :
-  T3 i (mn : ℤ × ℤ) = T3' i mn := by
-  simp only [T3, T3', Prod.swap, Prod.mk_sub_mk]
+lemma T3_cast_nat (i : ℕ) (mn : ℕ × ℕ) (h1 : mn.1 ≤ 2^i - 1) (h2 : mn.2 ≤ 2^(i+1) - 1) :
+  T3 i (mn : R × R) = T3_nat i mn := by
+  simp only [T3_nat, T3, Prod.swap, Prod.mk_sub_mk, RtimesR.coe_prod]
   rw [Nat.cast_sub h1, Nat.cast_sub h2]
   simp
 
--- Mostly generated by Gemini 2.5 Pro... scary
-def T3_inv (i : ℕ) (mn : ℤ × ℤ) : ℤ × ℤ := (2^i - 1, 2^(i+1) - 1) - mn.swap
-def T3'_inv (i : ℕ) (mn : ℕ × ℕ) : ℕ × ℕ := (2^i - 1, 2^(i+1) - 1) - mn.swap
+-- Originally mostly generated by Gemini 2.5 Pro... scary
+def T3_inv_nat (i : ℕ) (mn : ℕ × ℕ) : ℕ × ℕ := (2^i - 1, 2^(i+1) - 1) - mn.swap
+def T3_inv (i : ℕ) (mn : R × R) : R × R := (2^i - 1, 2^(i+1) - 1) - mn.swap
 
-lemma T3'_bound (i : ℕ) (mn : ℕ × ℕ) :
-  (T3' i mn).1 ≤ 2^(i+1) - 1 ∧ (T3' i mn).2 ≤ 2^i - 1 := by
-  simp only [T3', Prod.fst_sub, Prod.snd_sub]
+lemma T3_nat_bound (i : ℕ) (mn : ℕ × ℕ) :
+  (T3_nat i mn).1 ≤ 2^(i+1) - 1 ∧ (T3_nat i mn).2 ≤ 2^i - 1 := by
+  simp only [T3_nat, Prod.fst_sub, Prod.snd_sub]
   constructor
   · exact Nat.sub_le (2^(i+1) - 1) mn.2
   · exact Nat.sub_le (2^i - 1) mn.1
 
-lemma T3_inv_cast (i : ℕ) (mn : ℕ × ℕ) (h1 : mn.1 ≤ 2^(i+1) - 1) (h2 : mn.2 ≤ 2^i - 1) :
-  T3_inv i (mn : ℤ × ℤ) = T3'_inv i mn := by
-  simp only [T3_inv, T3'_inv, Prod.swap, Prod.mk_sub_mk, coe_nat_prod_def]
+lemma T3_inv_cast_nat (i : ℕ) (mn : ℕ × ℕ) (h1 : mn.1 ≤ 2^(i+1) - 1) (h2 : mn.2 ≤ 2^i - 1) :
+  T3_inv i (mn : R × R) = T3_inv_nat i mn := by
+  simp only [T3_inv, T3_inv_nat, Prod.swap, Prod.mk_sub_mk, RtimesR.coe_prod]
   rw [Nat.cast_sub h2, Nat.cast_sub h1]
   simp
 
-def T3_inv_of_T3 (i : ℕ) : Function.LeftInverse (T3_inv i) (T3 i) := by
+def T3_inv_of_T3 (i : ℕ) : Function.LeftInverse (T3_inv i) (T3 (R := R) i) := by
   simp only [Function.LeftInverse]
   intro mn
   simp only [T3_inv, T3, Prod.swap_sub, Prod.swap_prod_mk, Prod.swap_swap, sub_sub_cancel]
 
-def T3_of_T3_inv (i : ℕ) : Function.RightInverse (T3_inv i) (T3 i) := by
+def T3_of_T3_inv (i : ℕ) : Function.RightInverse (T3_inv i) (T3 (R := R) i) := by
   simp only [Function.RightInverse]
   intro mn
   simp only [T3, T3_inv, Prod.swap_sub, Prod.swap_prod_mk, Prod.swap_swap, sub_sub_cancel]
 
-lemma T3'_inv_of_T3' (i : ℕ) (mn : ℕ × ℕ) (h1 : mn.1 ≤ 2^i - 1) (h2 : mn.2 ≤ 2^(i+1) - 1) :
-  T3'_inv i (T3' i mn) = mn := by
-  have h_bound := T3'_bound i mn
+lemma T3_inv_of_T3_nat (i : ℕ) (mn : ℕ × ℕ) (h1 : mn.1 ≤ 2^i - 1) (h2 : mn.2 ≤ 2^(i+1) - 1) :
+  T3_inv_nat i (T3_nat i mn) = mn := by
+  have h_bound := T3_nat_bound i mn
   zify
-  rw [<-T3_inv_cast i (T3' i mn) h_bound.1 h_bound.2]
-  rw [<-T3_cast i mn h1 h2]
+  rw [<-T3_inv_cast_nat i (T3_nat i mn) h_bound.1 h_bound.2]
+  rw [<-T3_cast_nat i mn h1 h2]
   apply T3_inv_of_T3
-
 
 def within_square (a b : ℕ × ℕ) : Prop :=
   2•a ≤ b ∧ b ≤ 2•a+1
 
 lemma T1_within_square (i : ℕ) (mn1 mn2 : ℕ × ℕ) :
   within_square mn1 mn2 →
-  within_square (T1' i mn1) (T1' (i+1) mn2) := by
-  simp [within_square, T1']
+  within_square (T1_nat i mn1) (T1_nat (i+1) mn2) := by
+  simp [within_square, T1_nat]
   intro h1 h2
-  constructor
-  · constructor
-    · simp [pow_add]
-      exact h1.1
-    have := h1.2
-    dsimp at this
-    simp [pow_add]
-    omega
-  constructor
-  · simp
-    exact h2.1
-  have := h2.2
-  dsimp at this
-  simp
-  omega
+  have : 2 * mn1.1 ≤ mn2.1 := h1.1
+  have : 2 * mn1.2 ≤ mn2.2 := h1.2
+  have : mn2.1 ≤ 2*mn1.1 + 1 := h2.1
+  have : mn2.2 ≤ 2*mn1.2 + 1 := h2.2
+  constructor <;> constructor
+  <;> (simp [pow_add]; omega)
+
 
 lemma T2_within_square (i : ℕ) (mn1 mn2 : ℕ × ℕ) :
   within_square mn1 mn2 →
-  within_square (T2' i mn1) (T2' (i+1) mn2) := by
-  simp [within_square, T2']
+  within_square (T2_nat i mn1) (T2_nat (i+1) mn2) := by
+  simp [within_square, T2_nat]
   intro h1 h2
   rw [show (2 : ℕ × ℕ) = (2, 2) by rfl]
-  constructor
-  · constructor
-    · simp [pow_add]
-      have := h1.1
-      dsimp at this
-      omega
-    have := h1.2
-    dsimp at this
-    simp [pow_add]
-    omega
-  constructor
-  · simp
-    have := h2.1
-    dsimp at this
-    omega
-  have := h2.2
-  dsimp at this
-  simp
-  omega
+  have : 2 * mn1.1 ≤ mn2.1 := h1.1
+  have : 2 * mn1.2 ≤ mn2.2 := h1.2
+  have : mn2.1 ≤ 2*mn1.1 + 1 := h2.1
+  have : mn2.2 ≤ 2*mn1.2 + 1 := h2.2
+  constructor <;> constructor
+  <;> (simp [pow_add]; omega)
 
 lemma T3_within_square (i : ℕ) (mn1 mn2 : ℕ × ℕ)
   (h : mn1 ≤ (2^i -1, 2^i - 1))
   (h' : mn2 ≤ (2^(i+1) -1, 2^(i+1) - 1)) :
   within_square mn1 mn2 →
-  within_square (T3' i mn1) (T3' (i+1) mn2) := by
+  within_square (T3_nat i mn1) (T3_nat (i+1) mn2) := by
   rw [within_square, within_square]
   intro ⟨h1, h2⟩
   zify
-  suffices 2 • T3 i mn1 ≤ T3 (i + 1) mn2 ∧ T3 (i + 1) mn2 ≤ 2 • T3 i mn1 + 1 by
-    rw [T3_cast, T3_cast] at this
+  suffices 2 • T3 (R := ℤ) i mn1 ≤ T3 (R := ℤ) (i + 1) mn2 ∧
+    T3 (R := ℤ) (i + 1) mn2 ≤ 2 • T3 (R := ℤ) i mn1 + 1 by
+    rw [T3_cast_nat, T3_cast_nat] at this
     · exact this
     · exact h'.1
     · apply le_trans h'.2
@@ -253,16 +221,12 @@ lemma T3_within_square (i : ℕ) (mn1 mn2 : ℕ × ℕ)
     simp [pow_add]
     omega
   unfold T3
-  --rw [show ∀a b z : ℤ, (a + z, b + z) = (a,b) + z by rfl]
   have : ∀a b z : ℤ, (a - z, b - z) = (a,b) - z := by simp [Prod.sub_def]
   rw [this, this]
   have : ((2 : ℤ)^(i + 1 + 1), (2 : ℤ)^(i+1)) = 2 • (2^(i+1), 2^i) := by
     simp [pow_add, Prod.mul_def]
     exact ⟨by ring, by ring⟩
   rw [this]
-  have : ∀(a b c : ℤ × ℤ), a - b + c = a + c - b :=  by
-    intro a b c
-    exact sub_add_eq_add_sub a b c
   constructor
   · rw [smul_sub, smul_sub]
     rw [sub_le_sub_iff, sub_add_eq_add_sub, sub_add_eq_add_sub]
@@ -283,6 +247,7 @@ lemma T3_within_square (i : ℕ) (mn1 mn2 : ℕ × ℕ)
   rw [sub_le_sub_iff]
   apply add_le_add_right
   apply add_le_add_left
-  simp
+  simp only [RtimesR.coe_prod, Prod.swap_prod_mk, Prod.smul_mk, nsmul_eq_mul, Nat.cast_ofNat,
+    Prod.mk_le_mk]
   norm_cast
   exact ⟨h1.2, h1.1⟩
