@@ -5,6 +5,8 @@ import HilbertCurve.HilbertCurveNat
 import Mathlib.Data.Real.Basic -- Added import
 import Mathlib.Algebra.Order.Archimedean.Basic
 import HilbertCurve.LinearInterpolation
+import Mathlib.Topology.Algebra.ContinuousAffineMap
+import Mathlib.Analysis.Normed.Affine.ContinuousAffineMap
 
 noncomputable def scale_map (s : ℝ) : ℝ × ℝ →ₗ[ℝ] ℝ × ℝ where
   toFun := fun p => s • p
@@ -136,14 +138,21 @@ lemma normal_hilbert_of_int (i : ℕ) (n : ℤ) :
   rw [div_mul_hilbert_length, <-interpolate_interpolates]
   simp
 
+lemma normal_hilbert_of_nat (i : ℕ) (n : ℕ) :
+  (normalized_hilbert_curve i (n / hilbert_length i))
+    = scale_map (2^i)⁻¹ (hilbert_curve i n) := by
+  unfold normalized_hilbert_curve
+  dsimp
+  rw [show (n : ℝ) = (n : ℤ) by rfl]
+  rw [div_mul_hilbert_length, <-interpolate_interpolates]
+  simp
+
 lemma normal_hilbert_diff (i n : ℕ) :
   dist (normalized_hilbert_curve i (n / hilbert_length i))
     (normalized_hilbert_curve i ((n+1) / hilbert_length i)) ≤
   (2^i)⁻¹ := by
-  rw [show (n : ℝ) + 1 = (n + 1 : ℤ) by norm_cast]
-  rw [show (n : ℝ) = (n : ℤ) by norm_cast]
-  rw [normal_hilbert_of_int, normal_hilbert_of_int]
-  dsimp
+  rw [show (n + 1 : ℝ) = (n + 1 : ℕ) by norm_cast]
+  rw [normal_hilbert_of_nat, normal_hilbert_of_nat]
   rw [scale_map_dist (h := by positivity)]
   apply mul_le_of_le_one_right (ha := by positivity)
   change dist (hilbert_curve i n : ℤ × ℤ) (hilbert_curve i (n+1)) ≤ 1
@@ -271,10 +280,9 @@ lemma normal_hilbert_across_dist (i n : ℕ) :
   dist (normalized_hilbert_curve i ((n/4 : ℕ) / hilbert_length i))
     (normalized_hilbert_curve (i+1) (n / hilbert_length (i+1))) ≤
   (2^(i+1))⁻¹ := by
-  rw [show ((n/4 : ℕ) : ℝ) = ((n/4 : ℕ): ℤ) by norm_cast]
-  rw [normal_hilbert_of_int]
-  rw [show (n : ℝ) = (n: ℤ) by norm_cast]
-  rw [normal_hilbert_of_int]
+  --rw [show ((n/4 : ℕ) : ℝ) = ((n/4 : ℕ): ℤ) by norm_cast]
+  rw [normal_hilbert_of_nat]
+  rw [normal_hilbert_of_nat]
   rw [
     show ∀x : ℝ × ℝ, scale_map (2^(i+1))⁻¹ x = scale_map (2^i)⁻¹ ((2 : ℝ)⁻¹ • x) by
     rw [scale_map, scale_map, pow_succ, mul_inv]
@@ -286,7 +294,6 @@ lemma normal_hilbert_across_dist (i n : ℕ) :
   rw [scale_map_dist (r := (2^i)⁻¹) (h := by positivity)]
   rw [pow_succ, mul_inv]
   rw [mul_le_mul_left (by positivity)]
-  simp only [Nat.cast_ofNat, Int.toNat_ofNat]
   have subd := subdivision_size i n
   suffices
     dist (2 * hilbert_curve i (n/4)) (hilbert_curve (i+1) n) ≤ 1 by
@@ -479,11 +486,7 @@ lemma norm_hilbert_inv' (i : ℕ) (x : ℝ × ℝ) (xh : x ∈ Set.Icc 0 1):
     rw [div_le_one (by exact_mod_cast (hilbert_length_pos i))]
     exact_mod_cast le_of_lt (hilbert_inverse_size i _)
   rw [t_def]
-  rw [show
-    (hilbert_inverse i (i1, i2) : ℝ) = (hilbert_inverse i (i1, i2) : ℤ) by
-    norm_cast]
-  rw [normal_hilbert_of_int i]
-  simp only [Int.toNat_ofNat]
+  rw [normal_hilbert_of_nat i]
   rw [hilbert_curve_of_inverse (h := i1h.2) (h' := i2h.2)]
   simp [scale_map]
   rw [show x = ((2 : ℝ)^i)⁻¹ • (x * 2^i) by
@@ -553,8 +556,101 @@ lemma limit_hilbert_surjective : Set.range limit_hilbert_curve = Set.Icc 0 1 := 
   exact norm_hilbert_inv_dist n x xy
 
 
-noncomputable def T0_real : ℝ × ℝ →L[ℝ] ℝ × ℝ := LinearMap.toContinuousLinearMap T0
---noncomputable def T3_real : ℝ × ℝ →A[ℝ] ℝ × ℝ := AffineMap.toContinuousAffineMap T3
+-- We can decompose every ContinuousAffineMap into
+-- a continuous linear map + adding a constant
+namespace ContinuousAffineMap
+
+variable {R V W : Type*} [Ring R]
+variable [AddCommGroup V] [Module R V]
+variable [AddCommGroup W] [Module R W]
+variable [UniformSpace V] [IsUniformAddGroup V]
+variable [UniformSpace W] [IsUniformAddGroup W]
+
+/-
+#check ContinuousAffineMap.contLinear  -- (only for normed)
+
+def continuous_linear (f : V →ᴬ[R] W) : V →L[R] W where
+  toLinearMap := f.linear
+  cont := by
+    simp only [AddHom.toFun_eq_coe, LinearMap.coe_toAddHom]
+    rw [<-AffineMap.continuous_iff]
+    exact f.cont
+
+omit [IsUniformAddGroup V] in
+lemma decomp_cont (f : V →ᴬ[R] W) : ⇑f = ⇑f.continuous_linear + fun _ ↦ f 0 := by
+  unfold continuous_linear
+  -- import Mathlib.LinearAlgebra.AffineSpace.AffineMap
+  -- After importing more things, this broke
+  exact AffineMap.decomp (k := R) (V1 := V) (V2 := W) f
+
+lemma uniformContinuous (f : V →ᴬ[R] W) :
+  UniformContinuous f := by
+  rw [f.decomp]
+  apply UniformContinuous.add
+    f.continuous_linear.uniformContinuous
+    uniformContinuous_const
+-/
+
+end ContinuousAffineMap
+
+section
+
+universe u v w
+
+variable {𝕜 : Type u} [hnorm : NontriviallyNormedField 𝕜] {E : Type v} [AddCommGroup E] [Module 𝕜 E]
+  [TopologicalSpace E] [IsTopologicalAddGroup E] [ContinuousSMul 𝕜 E] {F : Type w} [AddCommGroup F]
+  [Module 𝕜 F] [TopologicalSpace F] [IsTopologicalAddGroup F] [ContinuousSMul 𝕜 F]
+
+variable [CompleteSpace 𝕜]
+variable [T2Space E] [FiniteDimensional 𝕜 E]
+
+def AffineMap.toContinuousAffineMap (f : E →ᵃ[𝕜] F) : E →ᴬ[𝕜] F where
+  toAffineMap := f
+  cont := by
+    rw [AffineMap.toFun_eq_coe, AffineMap.continuous_iff]
+    exact LinearMap.continuous_of_finiteDimensional (f := f.linear)
+end
+
+section
+
+variable {𝕜 R V W W₂ P Q Q₂ : Type*}
+variable [NormedAddCommGroup V] [MetricSpace P] [NormedAddTorsor V P]
+variable [NormedAddCommGroup W] [MetricSpace Q] [NormedAddTorsor W Q]
+variable [NormedField R] [NormedSpace R V] [NormedSpace R W]
+variable [NontriviallyNormedField 𝕜] [NormedSpace 𝕜 V] [NormedSpace 𝕜 W]
+
+lemma ContinuousAffineMap.uniformContinuous (f : P →ᴬ[𝕜] Q) :
+  UniformContinuous f := by
+  -- We should be able to replace the norm with a uniformity
+  -- But I'm a bit unclear on the details
+  rw [Metric.uniformContinuous_iff]
+  intro ε εpos
+  simp_rw [NormedAddTorsor.dist_eq_norm']
+  simp_rw [show ∀(a b : P), f a -ᵥ f b = f.linear (a -ᵥ b) by
+    intro a b
+    rw [show f a = f.toAffineMap a by rfl]
+    rw [show f b = f.toAffineMap b by rfl]
+    rw [<-AffineMap.linearMap_vsub]
+  ]
+  have : UniformContinuous f.linear := by
+    exact f.contLinear.uniformContinuous
+  rw [Metric.uniformContinuous_iff] at this
+  specialize this ε εpos
+  rcases this with ⟨δ, δpos, cont⟩
+  use δ, δpos
+  intro a b
+  specialize cont (a := 0) (b := a -ᵥ b)
+  simp only [dist_zero, map_zero] at cont
+  exact cont
+
+end
+
+
+noncomputable def T0_real : ℝ × ℝ →L[ℝ] ℝ × ℝ := (1 / 2 : ℝ)•LinearMap.toContinuousLinearMap T0
+noncomputable def T3_real (i : ℕ) : ℝ × ℝ →ᴬ[ℝ] ℝ × ℝ := AffineMap.toContinuousAffineMap (T3 i)
+
+lemma T3_uniform_cont (i : ℕ) : UniformContinuous (T3_real i) := by
+  exact (T3_real i).uniformContinuous
 
 -- First we'll find a sequence n_i s.t. n_i / hilbert_length i tends to t
 lemma floor_toNat_tends_to (t : ℝ) (h : 0 ≤ t) :
@@ -593,13 +689,47 @@ lemma floor_toNat_tends_to (t : ℝ) (h : 0 ≤ t) :
   rw [abs]
   norm_num
 
+lemma T0_real_cast (i : ℕ) (x : ℤ × ℤ) :
+  T0_real (scale_map (2^i)⁻¹ x) = scale_map (2^(i+1))⁻¹ (T0 x) := by
+  unfold scale_map
+  simp only [LinearMap.coe_mk, AddHom.coe_mk, map_smul]
+  rw [pow_succ, mul_inv, mul_smul]
+  unfold T0_real
+  simp
+
+lemma T0_real_cast_nat (i : ℕ) (x : ℕ × ℕ) :
+  T0_real (scale_map (2^i)⁻¹ x) = scale_map (2^(i+1))⁻¹ (T0_nat x) := by
+  rw [<-T0_cast]
+  rw [show (x : ℝ × ℝ) = (x : ℤ × ℤ) by rfl]
+  rw [T0_real_cast i]
+
+lemma normalized_recurse_bottom_left {i : ℕ} {j : ℕ}
+  (h : get_quadrant i (4*j) = Quadrant.BOTTOM_LEFT) :
+  normalized_hilbert_curve (i + 1) (j / hilbert_length i) =
+  T0_real (normalized_hilbert_curve i (4*j / hilbert_length i)) := by
+  rw [show 4*(j : ℝ) = (4*j : ℕ) by norm_cast]
+  rw [show
+    (j / hilbert_length i : ℝ) =
+    (4 * j : ℕ) / hilbert_length (i + 1) by
+    rw [hilbert_length_succ]
+    simp
+    ring
+  ]
+  rw [normal_hilbert_of_nat]
+  rw [normal_hilbert_of_nat]
+  rw [hilbert_curve]
+  dsimp only
+  rw [h]
+  dsimp only
+  rw [<-T0_real_cast_nat]
+
 /-
 The hilbert curve is a fractal just like its construction, i.e.
 it can be broken up into 4 copies of itself.
 -/
-lemma limit_hilbert_recurse_top_left (t : ℝ) (h : t ∈ Set.Icc 0 (1/4)) :
+lemma limit_hilbert_recurse_top_left (t : ℝ) (h : t ∈ Set.Ico 0 (1/4)) :
   limit_hilbert_curve t = T0_real (limit_hilbert_curve (4*t)) := by
-  set f := fun i ↦ (⌊t * hilbert_length i⌋.toNat / hilbert_length i : ℝ)
+  set f := fun i ↦ (⌊t * hilbert_length i⌋.toNat / hilbert_length i : ℝ) with f_def
   have f_tendsto : Filter.Tendsto f Filter.atTop (nhds t) :=
     floor_toNat_tends_to t h.1
   have lhs_tendsto : Filter.Tendsto
@@ -632,7 +762,33 @@ lemma limit_hilbert_recurse_top_left (t : ℝ) (h : t ∈ Set.Icc 0 (1/4)) :
     (fun i ↦ normalized_hilbert_curve (i + 1) (f i)) =
     (fun i ↦ T0_real (normalized_hilbert_curve i (4 * f i))) := by
     funext i
-    sorry
+    rw [f_def]
+    dsimp
+    set j := ⌊t * hilbert_length i⌋.toNat with j_def
+    have : get_quadrant i (4*j) = Quadrant.BOTTOM_LEFT := by
+      suffices 4*j < hilbert_length i by
+        unfold get_quadrant
+        rw [if_pos this]
+      rw [j_def]
+      zify
+      rw [Int.toNat_of_nonneg (by
+        rw [Int.floor_nonneg]
+        apply mul_nonneg h.1
+        exact_mod_cast le_of_lt (hilbert_length_pos i)
+      )]
+      rify
+      calc 4 * ⌊t * hilbert_length i⌋ ≤ 4 * (t * hilbert_length i) := by
+            apply mul_le_mul_of_nonneg_left
+            · exact Int.floor_le (t * ↑(hilbert_length i))
+            norm_num
+        _ < 4 * (1/4) * hilbert_length i := by
+          rw [mul_assoc]
+          apply mul_lt_mul_of_pos_left ?_ (by norm_num)
+          apply mul_lt_mul_of_pos_right ?_ (by exact_mod_cast hilbert_length_pos i)
+          exact h.2
+        _ = hilbert_length i := by ring
+    rw [<-mul_div_assoc]
+    rw [normalized_recurse_bottom_left this]
   rw [lhs_eq_rhs] at lhs_tendsto
   apply tendsto_nhds_unique lhs_tendsto rhs_tendsto
 

@@ -6,9 +6,21 @@ import Mathlib.Data.Real.Archimedean
 import Mathlib.LinearAlgebra.AffineSpace.AffineMap
 import Mathlib.Topology.ContinuousOn
 import Mathlib.Tactic
+import HilbertCurve.Transformations
 
-instance : Coe (ℤ × ℤ) (ℝ × ℝ) where
-  coe := fun p => (p.1, p.2)
+@[coe]
+def ZtimesZ.toR : ℤ × ℤ → ℝ × ℝ :=
+  fun p => (p.1, p.2)
+
+instance coe_ZtoR : Coe (ℤ × ℤ) (ℝ × ℝ) where
+  coe := ZtimesZ.toR
+
+@[simp]
+theorem ZtimesZ.coe_prod (p : ℤ × ℤ) : (p : ℝ × ℝ) = (↑p.1, ↑p.2) := rfl
+
+@[simp] theorem ZtimesZ.coe_first (p : ℕ × ℕ) : (p : ℝ × ℝ).1 = p.1 := rfl
+@[simp] theorem ZtimesZ.coe_second (p : ℕ × ℕ) : (p : ℝ × ℝ).2 = p.2 := rfl
+
 
 @[simp, norm_cast]
 lemma RtimesR.cast_eq (mn mn' : ℤ × ℤ) : (mn : ℝ × ℝ) = mn' ↔ mn = mn' := by
@@ -16,18 +28,15 @@ lemma RtimesR.cast_eq (mn mn' : ℤ × ℤ) : (mn : ℝ × ℝ) = mn' ↔ mn = m
 
 @[simp, norm_cast]
 lemma RtimesR.cast_le (mn mn' : ℤ × ℤ) : (mn : ℝ × ℝ) ≤ mn' ↔  mn ≤ mn' := by
-  simp only [Prod.le_def, Int.cast_le]
-
-instance : Coe (ℕ × ℕ) (ℝ × ℝ) where
-  coe := fun p => (p.1, p.2)
+  simp [Prod.le_def, Int.cast_le]
 
 @[simp, norm_cast]
 lemma RtimesR.cast_le_ofNat (mn mn' : ℕ × ℕ) : (mn : ℝ × ℝ) ≤ mn' ↔  mn ≤ mn' := by
-  simp only [Int.cast_natCast, Prod.le_def, Nat.cast_le]
+  simp only [coe_prod, Prod.le_def, Nat.cast_le]
 
 @[simp, norm_cast]
 lemma RtimesR.cast_eq_ofNat (mn mn' : ℕ × ℕ) : (mn : ℝ × ℝ) = mn' ↔  mn = mn' := by
-  simp only [Int.cast_natCast, Prod.ext_iff, Nat.cast_inj]
+  simp only [coe_prod, Prod.ext_iff, Nat.cast_inj]
 
 noncomputable def interpolate_points (f : ℤ → ℝ × ℝ) (t : ℝ) : ℝ × ℝ :=
   let n := ⌊t⌋
