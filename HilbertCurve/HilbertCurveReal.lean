@@ -291,7 +291,7 @@ lemma div_floor_mul_eq_floor (t : ℝ) (n : ℕ) (h : 0 ≤ t) (h' : 0 < n):
       exact_mod_cast h'
     _ ≤ (k/n : ℤ) + 1 := by
       rw [div_le_iff₀ n_pos]
-      rw [show k = k.toNat by exact Int.eq_ofNat_toNat.mpr k_nonneg]
+      rw [show k = k.toNat by exact Int.eq_natCast_toNat.mpr k_nonneg]
       norm_cast
       change k.toNat < (k.toNat / n + 1)*n
       rw [mul_comm]
@@ -396,7 +396,7 @@ lemma normal_subdivision_size (i : ℕ) (t : ℝ) :
     rw [this]
     -- We need to deal with some toNat casting to apply normal_hilbert_across_dist
     rw [show ⌊t * hilbert_length (i+1)⌋ = ⌊t * hilbert_length (i+1)⌋.toNat by
-      refine Int.eq_ofNat_toNat.mpr ?_
+      refine Int.eq_natCast_toNat.mpr ?_
       positivity
     ]
     rw [show ⌊t * hilbert_length (i+1)⌋.toNat / (4 : ℤ) = (⌊t * hilbert_length (i+1)⌋.toNat / 4 : ℕ) by

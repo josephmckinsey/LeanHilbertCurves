@@ -138,7 +138,7 @@ lemma interpolate_preserves_monotonic (f : ℤ → ℝ × ℝ) (a b : ℤ) (s : 
   (convexHull ℝ (s : Set (ℝ × ℝ))) := by
   have : b < a ∨ b = a ∨ a < b := by
     rw [<-or_assoc, ← le_iff_lt_or_eq, or_comm]
-    apply lt_or_le
+    apply lt_or_ge
   rcases this with h | h | h
   · have : Set.Icc (a : ℝ) b = ∅ := by
       simp only [not_le] at h
