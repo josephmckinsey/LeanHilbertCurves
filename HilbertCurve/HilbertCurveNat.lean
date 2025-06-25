@@ -7,6 +7,8 @@ import Mathlib.Algebra.Order.Sub.Defs
 import HilbertCurve.Quadrants
 import HilbertCurve.Transformations
 
+namespace HilbertCurve
+
 /-
 universe u in
 def hilbert_cases {motive : ℕ → Sort u} (i : ℕ) (n : ℕ)
@@ -733,3 +735,5 @@ lemma subdivision_cauchy (i j n : ℕ) :
     rw [NtimesN.add_sub_assoc (k := 1) one_le_two_pow]
     rw [NtimesN.add_sub_assoc (k := 1) one_le_two_pow]
     apply add_le_add_right this
+
+end HilbertCurve

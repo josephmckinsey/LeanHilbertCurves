@@ -2,6 +2,8 @@ import HilbertCurve.Basic
 import Mathlib.Data.Nat.Basic
 import Mathlib.Tactic
 
+namespace HilbertCurve
+
 inductive Quadrant where
 | BOTTOM_LEFT | TOP_LEFT | TOP_RIGHT | BOTTOM_RIGHT
 deriving DecidableEq
@@ -176,3 +178,5 @@ lemma bottom_right_quad (i : ℕ) (mn : ℕ × ℕ) :
   · rw [if_pos]
     exact h.2
   omega
+
+end HilbertCurve

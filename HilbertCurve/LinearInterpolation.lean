@@ -6,7 +6,8 @@ import Mathlib.Data.Real.Archimedean
 import Mathlib.LinearAlgebra.AffineSpace.AffineMap
 import Mathlib.Topology.ContinuousOn
 import Mathlib.Tactic
-import HilbertCurve.Transformations
+import Mathlib.Algebra.Order.Sub.Defs
+import HilbertCurve.Basic
 
 @[coe]
 def ZtimesZ.toR : ℤ × ℤ → ℝ × ℝ :=

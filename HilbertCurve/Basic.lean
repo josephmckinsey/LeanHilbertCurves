@@ -33,3 +33,38 @@ instance {α : Type} [PartialOrder α] [Ring α] [IsStrictOrderedRing α] :
   | ⟨h1, h2⟩, ⟨h1', h2'⟩ =>
     ⟨mul_le_mul_of_nonneg_right h1 h1',
     mul_le_mul_of_nonneg_right h2 h2'⟩
+
+variable {R : Type*} [Ring R]
+
+@[coe]
+def NtimesN.toRtimesR : ℕ × ℕ → R × R := fun p => (p.1, p.2)
+
+instance : Coe (ℕ × ℕ) (R × R) where
+  coe := NtimesN.toRtimesR
+
+@[simp]
+theorem RtimesR.coe_prod (p : ℕ × ℕ) : (p : R × R) = (↑p.1, ↑p.2) := rfl
+
+@[simp] theorem RtimesR.coe_first (p : ℕ × ℕ) : (p : R × R).1 = p.1 := rfl
+@[simp] theorem RtimesR.coe_second (p : ℕ × ℕ) : (p : R × R).2 = p.2 := rfl
+
+@[simp, norm_cast]
+lemma NtimesN.cast_inj (mn mn' : ℕ × ℕ) : (mn : ℤ × ℤ) = mn' ↔ mn = mn' := by
+  simp [<-Prod.ext_iff]
+
+@[zify_simps]
+lemma ZtimesZ.cast_eq (mn mn' : ℕ × ℕ) : mn = mn' ↔ (mn : ℤ × ℤ) = mn' := by
+  simp [<-Prod.ext_iff]
+
+@[zify_simps]
+lemma ZtimesZ.cast_mul (mn mn' a : ℕ × ℕ) : mn * mn' = a ↔ (mn : ℤ × ℤ) * mn' = a := by
+  zify
+  simp
+
+@[simp, norm_cast]
+lemma NtimesN.cast_le (mn mn' : ℕ × ℕ) : (mn : ℤ × ℤ) ≤ mn' ↔ mn ≤ mn' := by
+  simp [<-Prod.le_def]
+
+@[zify_simps]
+lemma ZtimesZ.cast_le (mn mn' : ℕ × ℕ) : mn ≤ mn' ↔ (mn : ℤ × ℤ) ≤ mn' := by
+  simp [<-Prod.le_def]

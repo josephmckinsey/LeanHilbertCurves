@@ -3,6 +3,8 @@ import Mathlib.Data.Real.Basic -- Added import
 import Mathlib.Algebra.Order.Archimedean.Basic
 import HilbertCurve.LinearInterpolation
 
+namespace HilbertCurve
+
 /--
 scale is smul as a LinearMap
 -/
@@ -507,3 +509,5 @@ norm_hilbert_inv is an approximately inverse normalized_hilbert_curve
 lemma norm_hilbert_inv_dist (i : ℕ) (x : ℝ × ℝ) (xh : x ∈ Set.Icc 0 1) :
   dist x (normalized_hilbert_curve i (norm_hilbert_inv i x xh)) ≤ (2^i)⁻¹ :=
   (Classical.choose_spec (exists_normal_hilbert_approx_inv i x xh)).2
+
+end HilbertCurve

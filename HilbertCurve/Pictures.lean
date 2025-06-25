@@ -5,6 +5,7 @@ import ProofWidgets.Component.Recharts -- For Recharts components
 -- Note: HilbertCurve.HilbertCurveNat, ProofWidgets.Data.Svg, ProofWidgets.Component.HtmlDisplay
 -- are assumed to be imported from the existing code in the file.
 
+namespace HilbertCurve
 
 open ProofWidgets Svg
 
@@ -273,6 +274,7 @@ def DisplacementPlot (i : Nat) (n_idx : Nat) (chartWidth := 400) (chartHeight :=
 -- This will display the message for i=0.
 #html DisplacementPlot 0 0
 
+end HilbertCurve
 
 namespace ProofWidgets
 
@@ -298,12 +300,13 @@ partial def Html.toString : Html → String
 
 end ProofWidgets
 
-def saveStringToFile (filePath : System.FilePath) (content : String) : IO Unit :=
-  IO.FS.writeFile filePath content
+namespace HilbertCurve
 
 -- Example: Save the comparison of Hilbert curves of order 2 and 3 to an SVG file
 def saveComparisonToFile (i j : ℕ) (fileName : String) : IO Unit := do
   let svgString := (compare_hilbert_curves i j).toHtml.toString
   let filePath : System.FilePath := fileName
-  saveStringToFile filePath svgString
+  IO.FS.writeFile filePath svgString
   IO.println s!"Saved Hilbert curve comparison to {filePath}"
+
+end HilbertCurve

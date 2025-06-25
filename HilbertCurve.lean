@@ -6,6 +6,9 @@ import HilbertCurve.HilbertCurveReal
 import Mathlib.Topology.Algebra.ContinuousAffineMap
 import Mathlib.Analysis.Normed.Affine.ContinuousAffineMap
 
+
+namespace HilbertCurve
+
 /--
 The real Hilbert converges at each point.
 -/
@@ -126,6 +129,8 @@ lemma limit_hilbert_surj_on :
   rw [dist_comm]
   exact norm_hilbert_inv_dist n x xy
 
+end HilbertCurve
+
 -- We can decompose every ContinuousAffineMap into
 -- a continuous linear map + adding a constant
 namespace ContinuousAffineMap
@@ -215,6 +220,7 @@ lemma ContinuousAffineMap.uniformContinuous (f : P →ᴬ[𝕜] Q) :
 
 end
 
+namespace HilbertCurve
 
 noncomputable def T0_real : ℝ × ℝ →L[ℝ] ℝ × ℝ := (1 / 2 : ℝ)•LinearMap.toContinuousLinearMap T0
 
@@ -693,3 +699,5 @@ Hilber curve has dimension 2, then it can't
 be Holder continuous with exponent > 1/2, and in particular,
 it can't be Lipschitz or differentiable.
 -/
+
+end HilbertCurve
