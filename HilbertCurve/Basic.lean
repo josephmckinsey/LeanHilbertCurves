@@ -1,6 +1,8 @@
 import Mathlib.Data.Nat.Basic
 import Mathlib.Tactic
 
+namespace HilbertCurve
+
 def hilbert_length (i : ℕ) := 2^(2*i)
 
 /--
@@ -33,6 +35,8 @@ instance {α : Type} [PartialOrder α] [Ring α] [IsStrictOrderedRing α] :
   | ⟨h1, h2⟩, ⟨h1', h2'⟩ =>
     ⟨mul_le_mul_of_nonneg_right h1 h1',
     mul_le_mul_of_nonneg_right h2 h2'⟩
+
+end HilbertCurve
 
 variable {R : Type*} [Ring R]
 

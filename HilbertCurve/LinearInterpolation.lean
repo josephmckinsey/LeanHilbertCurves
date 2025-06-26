@@ -43,6 +43,9 @@ noncomputable def interpolate_points (f : ℤ → ℝ × ℝ) (t : ℝ) : ℝ ×
   let n := ⌊t⌋
   (AffineMap.lineMap (f n) (f (n+1))) (t - ⌊t⌋)
 
+/--
+Interpolation matches at each point.
+-/
 lemma interpolate_interpolates (f : ℤ → ℝ × ℝ) (i : ℤ) :
   f i = interpolate_points f i := by
   simp [interpolate_points]
@@ -57,7 +60,10 @@ lemma interpolate_interpolates_one (f : ℤ → ℝ × ℝ) :
   rw [show (1 : ℝ) = (1 : ℤ) by norm_cast]
   exact interpolate_interpolates f 1
 
-
+/--
+Shifting an interpolation's domain is equivalent to shifting
+the input map's.
+-/
 lemma interpolate_add (i : ℤ) (f : ℤ → ℝ × ℝ) (t : ℝ) :
   (interpolate_points f) (t + i)
   = (interpolate_points (f ∘ (fun x ↦ x + i))) t := by
@@ -214,6 +220,9 @@ lemma neg_to_normal_eq_univ {α : Type} [Ring α] [LinearOrder α]
   intro x;
   apply exists_nat_ge
 
+/--
+Interpolation preserves containment up to convexity
+-/
 lemma interpolate_preserves (f : ℤ → ℝ × ℝ)  (s : Set (ℝ × ℝ)) :
    Set.MapsTo f Set.univ s →
    Set.MapsTo (interpolate_points f) Set.univ (convexHull ℝ s) := by
@@ -222,7 +231,10 @@ lemma interpolate_preserves (f : ℤ → ℝ × ℝ)  (s : Set (ℝ × ℝ)) :
   intro h i
   exact_mod_cast interpolate_preserves_monotonic f (-i) i s (h i)
 
-
+/--
+Affine maps applied to interpolation is equivalent to interpolation
+applied to affine map.
+-/
 lemma interpolate_map (f : ℤ → ℝ × ℝ) (g : ℝ × ℝ →ᵃ[ℝ] ℝ × ℝ) :
   (interpolate_points (g ∘ f)) = g ∘ interpolate_points f := by
   funext t
@@ -232,6 +244,9 @@ lemma interpolate_map' (f : ℤ → ℝ × ℝ) (g : ℝ × ℝ →ₗ[ℝ] ℝ 
   (interpolate_points (g ∘ f)) = g ∘ interpolate_points f := by
   apply interpolate_map (g := g.toAffineMap)
 
+/--
+Interpolation on each interval is equal to the affine map.
+-/
 lemma interpolate_eq_affine_map (f : ℤ → ℝ × ℝ) (n : ℤ)
   (t : ℝ) (h : n ≤ t) (h' : t ≤ n+1) :
   interpolate_points f t = AffineMap.lineMap (f n) (f (n+1)) (t - n) := by
@@ -278,6 +293,9 @@ lemma local_finiteness (x : ℝ):
     exact Set.finite_Ioo (⌊x⌋ - 2) (⌈x⌉ + 2)
   apply h2
 
+/--
+Interpolation is continuous
+-/
 lemma interpolate_is_continuous (f : ℤ → ℝ × ℝ) :
   Continuous (interpolate_points f) := by
   set s : ℤ → Set ℝ := fun i => Set.Icc i (i+1) with s_def
@@ -329,6 +347,10 @@ lemma affine_distance (x y : ℝ × ℝ) (t : ℝ)
     exact h'
   exact mul_le_of_le_one_left dist_nonneg this
 
+/--
+The distance of the interpolation from the beginnning is less than
+the distance between points.
+-/
 lemma interpolate_distance (f : ℤ → ℝ × ℝ) (t : ℝ) :
   dist (interpolate_points f t) (interpolate_points f ⌊t⌋) ≤
   dist (f ⌊t⌋) (f (⌊t⌋ + 1)) := by

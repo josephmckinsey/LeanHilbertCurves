@@ -114,8 +114,6 @@ lemma limit_hilbert_surj_on :
   apply (Filter.tendsto_iff_seq_tendsto (k := Filter.atTop) (
     f := fun i ↦ normalized_hilbert_curve i (f i)
   )).mp ?_ φ (StrictMono.tendsto_atTop φh)
-  -- This might be a good one to split
-  --have := norm_hilbert_inv_dist i x xy
   -- We can use the bound from the approximate inverse to guarantee convergence.
   rw [tendsto_iff_dist_tendsto_zero]
   have : Filter.Tendsto (fun n => ((2 : ℝ) ^ n)⁻¹) Filter.atTop (nhds 0) := by
@@ -560,6 +558,11 @@ lemma limit_hilbert_recurse_bottom_left (t : ℝ) (h : t ∈ Set.Icc 0 (1/4)) :
   rw [Filter.tendsto_congr' lhs_eq_rhs] at lhs_tendsto
   apply tendsto_nhds_unique lhs_tendsto rhs_tendsto
 
+
+/-
+The hilbert curve is a fractal just like its construction, i.e.
+it can be broken up into 4 copies of itself.
+-/
 lemma limit_hilbert_recurse_bottom_right (t : ℝ) (h : t ∈ Set.Icc (3/4) 1) :
   limit_hilbert_curve t = T3_real_lim (limit_hilbert_curve (4*t - 3)) := by
   rcases (sequence_exists t 3 (by linarith [h.1]) (by linarith [h.2]))
