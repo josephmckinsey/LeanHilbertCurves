@@ -36,7 +36,7 @@ private def frame : Frame where
 /--
   Create an SVG visualization of the i-th order Hilbert curve.
 -/
-def hilbert_curve_svg (i : ℕ) : Svg frame :=
+def hilbert_curve_svg (i : ℕ) (stroke : Svg.Size frame := .px 1) : Svg frame :=
   let total_points := hilbert_length i
   let scale := (2^i : Nat).toFloat
 
@@ -49,7 +49,7 @@ def hilbert_curve_svg (i : ℕ) : Svg frame :=
     let p1 := (x1.toFloat / scale * 2 - 1, y1.toFloat / scale * 2 - 1)
     let p2 := (x2.toFloat / scale * 2 - 1, y2.toFloat / scale * 2 - 1)
 
-    line p1 p2 |>.setStroke (0., 0., 1.) (.px 1))
+    line p1 p2 |>.setStroke (0., 0., 1.) stroke)
 
   { elements := lineElements.toArray }
 
@@ -60,7 +60,7 @@ def hilbert_curve_svg (i : ℕ) : Svg frame :=
 /--
   Create an SVG visualization of two Hilbert curves of different orders.
 -/
-def hilbert_curve_with_points (i : ℕ) : Svg frame :=
+def hilbert_curve_with_points (i : ℕ) (stroke : Svg.Size frame := .px 3) : Svg frame :=
   let total_points := hilbert_length i
   let scale := (2^i : Nat).toFloat
 
@@ -73,7 +73,7 @@ def hilbert_curve_with_points (i : ℕ) : Svg frame :=
     let p1 := (x1.toFloat / scale * 2 - 1, y1.toFloat / scale * 2 - 1)
     let p2 := (x2.toFloat / scale * 2 - 1, y2.toFloat / scale * 2 - 1)
 
-    line p1 p2 |>.setStroke (0., 0., 1.) (.px 3))
+    line p1 p2 |>.setStroke (0., 0., 1.) stroke)
 
   -- Generate squares at each coordinate
   let squareElements := (List.range total_points).map (fun j =>
@@ -102,7 +102,9 @@ def hilbert_curve_with_points (i : ℕ) : Svg frame :=
 #html (hilbert_curve_with_points 1).toHtml
 #html (hilbert_curve_with_points 2).toHtml
 
-def compare_hilbert_curves (i j : ℕ) : Svg frame :=
+def compare_hilbert_curves (i j : ℕ)
+  (stroke1 : Svg.Size frame := .px 4)
+  (stroke2 : Svg.Size frame := .px 2) : Svg frame :=
   let total_points_i := hilbert_length i
   let total_points_j := hilbert_length j
   let scale_i := (2^i : Nat).toFloat
@@ -114,7 +116,7 @@ def compare_hilbert_curves (i j : ℕ) : Svg frame :=
     let (x2, y2) := hilbert_curve i (k+1)
     let p1 := (x1.toFloat / scale_i * 2 - 1, y1.toFloat / scale_i * 2 - 1)
     let p2 := (x2.toFloat / scale_i * 2 - 1, y2.toFloat / scale_i * 2 - 1)
-    line p1 p2 |>.setStroke (1., 0., 0.) (.px 4))
+    line p1 p2 |>.setStroke (1., 0., 0.) stroke1)
 
   -- Generate line segments for the second curve (blue)
   let lineElements_j := (List.range (total_points_j - 1)).map (fun k =>
@@ -122,24 +124,23 @@ def compare_hilbert_curves (i j : ℕ) : Svg frame :=
     let (x2, y2) := hilbert_curve j (k+1)
     let p1 := (x1.toFloat / scale_j * 2 - 1, y1.toFloat / scale_j * 2 - 1)
     let p2 := (x2.toFloat / scale_j * 2 - 1, y2.toFloat / scale_j * 2 - 1)
-    line p1 p2 |>.setStroke (0., 0., 1.) (.px 1))
+    line p1 p2 |>.setStroke (0.0, 0.5, 1.0) stroke2)
 
   -- Generate points at each coordinate
   let pointElements_i := (List.range total_points_i).map (fun j =>
     let (x, y) := hilbert_curve i j
     -- Scale point to fit in the frame
     let p := (x.toFloat / scale_i * 2 - 1, y.toFloat / scale_i * 2 - 1)
-    circle p (.abs 0.05) |>.setStroke (0.,0.,0.) (.px 2) |>.setFill (1.,0.,0.) |>.setId s!"point{j}")
+    circle p (.abs 0.05) |>.setFill (1.,0.,0.) |>.setId s!"point{j}")
 
   -- Generate points at each coordinate
   let pointElements_j := (List.range total_points_j).map (fun k =>
     let (x, y) := hilbert_curve j k
     -- Scale point to fit in the frame
     let p := (x.toFloat / scale_j * 2 - 1, y.toFloat / scale_j * 2 - 1)
-    circle p (.abs 0.02) |>.setStroke (0.,0.,0.) (.px 1) |>.setFill (0.,1.,0.) |>.setId s!"point{k}")
+    circle p (.abs 0.025) |>.setFill (0.0,0.5,1.0) |>.setId s!"point{k}")
 
-
-  { elements := (lineElements_i ++ lineElements_j ++ pointElements_i ++ pointElements_j).toArray }
+  { elements := (lineElements_i ++ pointElements_i ++ lineElements_j ++ pointElements_j ).toArray }
 
 -- Example: Compare Hilbert curves of order 2 and 3
 #html (compare_hilbert_curves 2 3).toHtml
@@ -264,8 +265,6 @@ def DisplacementPlot (i : Nat) (n_idx : Nat) (chartWidth := 400) (chartHeight :=
     <LineChart width= {chartWidth} height={chartHeight} data={jsonData} >
       <XAxis dataKey?="t" domain?={#[toJson 0, toJson 1]} type={.number} />
       <YAxis domain?={#[toJson (-1.1), toJson 1.1]} allowDataOverflow={false} type={.number} />
-      <Line type={.monotone} dataKey="vx" stroke="#8884d8" dot?={Bool.false} />
-      <Line type={.monotone} dataKey="vy" stroke="#82ca9d" dot?={Bool.false} />
       <Line type={.monotone} dataKey="max" stroke="#ffcaff" dot?={Bool.false} />
       <Line type={.monotone} dataKey="sqrt" stroke="#0abe0f" dot?={Bool.false} />
     </LineChart>
