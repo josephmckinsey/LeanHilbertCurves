@@ -84,7 +84,7 @@ def hilbert_inverse : ℕ → ℕ × ℕ → ℕ
   | Quadrant.TOP_RIGHT =>
       2*hilbert_length i + hilbert_inverse i (T2_inv_nat i mn)
 
-#eval hilbert_curve 2 4
+--#eval hilbert_curve 2 4
 #guard hilbert_inverse 10 (hilbert_curve 10 304) = 304
 
 /--

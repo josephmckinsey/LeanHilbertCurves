@@ -55,7 +55,7 @@ def hilbert_curve_svg (i : ℕ) : Svg frame :=
 
 -- Example: Display a Hilbert curve of order 2
 #html (hilbert_curve_svg 2).toHtml
-#html (hilbert_curve_svg 2).toHtml -- Looks good
+#html (hilbert_curve_svg 3).toHtml -- Looks good
 
 /--
   Create an SVG visualization of two Hilbert curves of different orders.
@@ -73,18 +73,33 @@ def hilbert_curve_with_points (i : ℕ) : Svg frame :=
     let p1 := (x1.toFloat / scale * 2 - 1, y1.toFloat / scale * 2 - 1)
     let p2 := (x2.toFloat / scale * 2 - 1, y2.toFloat / scale * 2 - 1)
 
-    line p1 p2 |>.setStroke (0., 0., 1.) (.px 1))
+    line p1 p2 |>.setStroke (0., 0., 1.) (.px 3))
 
-  -- Generate points at each coordinate
-  let pointElements := (List.range total_points).map (fun j =>
+  -- Generate squares at each coordinate
+  let squareElements := (List.range total_points).map (fun j =>
     let (x, y) := hilbert_curve i j
     -- Scale point to fit in the frame
-    let p := (x.toFloat / scale * 2 - 1, y.toFloat / scale * 2 - 1)
-    circle p (.abs 0.03) |>.setStroke (0.,0.,0.) (.px 1) |>.setFill (1.,0.,0.) |>.setId s!"point{j}")
+    let p_center := (x.toFloat / scale * 2 - 1, y.toFloat / scale * 2 - 1)
+    let (px, py) := p_center
+    let side_half := 0.9 / scale
 
-  { elements := (lineElements ++ pointElements).toArray }
+    -- Define the four vertices of the square
+    let points_abs : Array (Float × Float) := #[
+      (px - side_half, py - side_half), -- bottom-left
+      (px + side_half, py - side_half), -- bottom-right
+      (px + side_half, py + side_half), -- top-right
+      (px - side_half, py + side_half)  -- top-left
+    ]
+    let points : Array (Point frame) := points_abs.map (fun p => Point.abs p.1 p.2)
 
--- Example: Display a Hilbert curve of order 2 with points
+    polygon points
+      |>.setFill (1.0,0.8,0.8)
+      |>.setId s!"square{j}")
+
+  { elements := (squareElements ++ lineElements).toArray }
+
+#html (hilbert_curve_with_points 0).toHtml
+#html (hilbert_curve_with_points 1).toHtml
 #html (hilbert_curve_with_points 2).toHtml
 
 def compare_hilbert_curves (i j : ℕ) : Svg frame :=
@@ -128,6 +143,7 @@ def compare_hilbert_curves (i j : ℕ) : Svg frame :=
 
 -- Example: Compare Hilbert curves of order 2 and 3
 #html (compare_hilbert_curves 2 3).toHtml
+#html (compare_hilbert_curves 3 4).toHtml
 
 /--
   Create an SVG visualization of the i-th order Hilbert curve,
@@ -174,20 +190,17 @@ def hilbert_curve_squares_svg (i : ℕ) : Svg frame :=
 
     polygon points
       |>.setFill color
-      |>.setStroke (0.0, 0.0, 0.0) (.px 1) -- Black border, 1 pixel wide
+      --|>.setStroke (0.0, 0.0, 0.0) (.px 1) -- Black border, 1 pixel wide
       |>.setId s!"square{n}"
   )
   { elements := squareElements.toArray }
 
-
--- Example: Display Hilbert curve squares for order 3
-#html (hilbert_curve_squares_svg 3).toHtml
-
 -- Example: Display Hilbert curve squares for order 0 (a single square)
 #html (hilbert_curve_squares_svg 0).toHtml
-
--- Example: Display Hilbert curve squares for order 1
+#html (hilbert_curve_squares_svg 1).toHtml
 #html (hilbert_curve_squares_svg 2).toHtml
+#html (hilbert_curve_squares_svg 3).toHtml
+#html (hilbert_curve_squares_svg 6).toHtml
 
 private def displacement_plot_frame : Frame where
   xmin   := -0.1
