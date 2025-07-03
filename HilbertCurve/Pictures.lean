@@ -27,9 +27,9 @@ private def hslToRgb (h s l : Float) : (Float × Float × Float) :=
     (r, g, b)
 
 private def frame : Frame where
-  xmin   := -2
-  ymin   := -2
-  xSize  := 4
+  xmin   := -1.5
+  ymin   := -1.5
+  xSize  := 3
   width  := 400
   height := 400
 
@@ -100,7 +100,7 @@ def hilbert_curve_with_points (i : ℕ) (stroke : Svg.Size frame := .px 3) : Svg
 
 #html (hilbert_curve_with_points 0).toHtml
 #html (hilbert_curve_with_points 1).toHtml
-#html (hilbert_curve_with_points 2).toHtml
+#html (hilbert_curve_with_points 2 (.abs 0.03)).toHtml
 
 def compare_hilbert_curves (i j : ℕ)
   (stroke1 : Svg.Size frame := .px 4)
@@ -143,8 +143,8 @@ def compare_hilbert_curves (i j : ℕ)
   { elements := (lineElements_i ++ pointElements_i ++ lineElements_j ++ pointElements_j ).toArray }
 
 -- Example: Compare Hilbert curves of order 2 and 3
-#html (compare_hilbert_curves 2 3).toHtml
-#html (compare_hilbert_curves 3 4).toHtml
+#html (compare_hilbert_curves 2 3 (.abs 0.04) (.abs 0.02)).toHtml
+#html (compare_hilbert_curves 3 4 (.abs 0.04) (.abs 0.02)).toHtml
 
 /--
   Create an SVG visualization of the i-th order Hilbert curve,
@@ -265,7 +265,7 @@ def DisplacementPlot (i : Nat) (n_idx : Nat) (chartWidth := 400) (chartHeight :=
     <LineChart width= {chartWidth} height={chartHeight} data={jsonData} >
       <XAxis dataKey?="t" domain?={#[toJson 0, toJson 1]} type={.number} />
       <YAxis domain?={#[toJson (-1.1), toJson 1.1]} allowDataOverflow={false} type={.number} />
-      <Line type={.monotone} dataKey="max" stroke="#ffcaff" dot?={Bool.false} />
+      <Line type={.monotone} dataKey="max" stroke="#ff00ff" dot?={Bool.false} />
       <Line type={.monotone} dataKey="sqrt" stroke="#0abe0f" dot?={Bool.false} />
     </LineChart>
 
